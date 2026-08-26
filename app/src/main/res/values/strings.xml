@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">VK Reforged</string>
+    <!-- Замените 0 на ваш App ID от VK -->
+    <integer name="com_vk_sdk_AppId">2274003</integer>
+</resources>
