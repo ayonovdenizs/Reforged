@@ -1,26 +1,24 @@
 package com.reforged.client.ui.messages
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.os.Build
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
+import com.reforged.client.data.manager.LongPollEvent
+import com.reforged.client.data.manager.LongPollManager
 import com.reforged.client.data.repository.MessagesRepository
 import com.vk.sdk.api.groups.dto.GroupsGroupFullDto
 import com.vk.sdk.api.messages.dto.MessagesGetConversationByIdExtendedDto
 import com.vk.sdk.api.messages.dto.MessagesGetHistoryResponseDto
 import com.vk.sdk.api.users.dto.UsersUserFullDto
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -32,7 +30,8 @@ sealed class ChatState {
         val photoUrl: String? = null,
         val profiles: List<UsersUserFullDto> = emptyList(),
         val groups: List<GroupsGroupFullDto> = emptyList(),
-        val playingAudioUrl: String? = null
+        val playingAudioUrl: String? = null,
+        val typingUsers: List<Long> = emptyList()
     ) : ChatState()
     data class Error(val message: String) : ChatState()
 }
@@ -41,8 +40,8 @@ sealed class ChatState {
 class ChatViewModel @Inject constructor(
     private val repository: MessagesRepository,
     private val player: ExoPlayer,
-    savedStateHandle: SavedStateHandle,
-    @ApplicationContext private val context: Context
+    private val longPollManager: LongPollManager,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val peerId: Long = checkNotNull(savedStateHandle["peerId"])
@@ -50,19 +49,41 @@ class ChatViewModel @Inject constructor(
     private val _state = MutableStateFlow<ChatState>(ChatState.Loading)
     val state: StateFlow<ChatState> = _state
 
-    private val messageReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            loadHistory(isSilent = true)
+    init {
+        loadHistory()
+        observeLongPoll()
+    }
+
+    private fun observeLongPoll() {
+        viewModelScope.launch {
+            longPollManager.events.collectLatest { event ->
+                when (event) {
+                    is LongPollEvent.NewMessage -> {
+                        if (event.peerId == peerId) {
+                            loadHistory(isSilent = true)
+                        }
+                    }
+                    is LongPollEvent.Typing -> {
+                        if (event.peerId == peerId) {
+                            addTypingUser(event.userId)
+                        }
+                    }
+                    else -> {}
+                }
+            }
         }
     }
 
-    init {
-        loadHistory()
-        val filter = IntentFilter("com.reforged.client.NEW_MESSAGE")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(messageReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(messageReceiver, filter)
+    private fun addTypingUser(userId: Long) {
+        val current = (state.value as? ChatState.Success) ?: return
+        if (userId in current.typingUsers) return
+        
+        _state.value = current.copy(typingUsers = current.typingUsers + userId)
+        
+        viewModelScope.launch {
+            delay(5000)
+            val latest = (state.value as? ChatState.Success) ?: return@launch
+            _state.value = latest.copy(typingUsers = latest.typingUsers - userId)
         }
     }
 
@@ -100,7 +121,7 @@ class ChatViewModel @Inject constructor(
                     }
                 }
                 
-                val currentPlaying = (state.value as? ChatState.Success)?.playingAudioUrl
+                val current = (state.value as? ChatState.Success)
 
                 _state.value = ChatState.Success(
                     history = history,
@@ -108,8 +129,12 @@ class ChatViewModel @Inject constructor(
                     photoUrl = photoUrl,
                     profiles = conv?.profiles ?: emptyList(),
                     groups = conv?.groups ?: emptyList(),
-                    playingAudioUrl = currentPlaying
+                    playingAudioUrl = current?.playingAudioUrl,
+                    typingUsers = current?.typingUsers ?: emptyList()
                 )
+                
+                // Mark messages as read
+                repository.markAsRead(peerId)
             }.onFailure { error ->
                 if (!isSilent) _state.value = ChatState.Error(error.message ?: "Unknown error")
             }
@@ -158,12 +183,5 @@ class ChatViewModel @Inject constructor(
                 }
             }
         }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        try {
-            context.unregisterReceiver(messageReceiver)
-        } catch (e: Exception) { }
     }
 }

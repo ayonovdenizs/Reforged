@@ -1,5 +1,6 @@
 package com.reforged.client.ui.profile
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.reforged.client.data.remote.BadgeDto
@@ -31,20 +32,23 @@ sealed class ProfileState {
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val repository: ProfileRepository,
-    private val badgeRepository: BadgeRepository
+    private val badgeRepository: BadgeRepository,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    val userId: Long? = savedStateHandle.get<Long>("userId")
 
     private val _state = MutableStateFlow<ProfileState>(ProfileState.Loading)
     val state: StateFlow<ProfileState> = _state
 
     init {
-        loadProfile()
+        loadProfile(userId)
     }
 
-    fun loadProfile(userId: Long? = null) {
+    fun loadProfile(targetUserId: Long? = null) {
         viewModelScope.launch {
             _state.value = ProfileState.Loading
-            repository.getProfile(userId ?: com.vk.api.sdk.VK.getUserId().value).onSuccess { profile ->
+            repository.getProfile(targetUserId ?: com.vk.api.sdk.VK.getUserId().value).onSuccess { profile ->
                 val uId = profile.id.value
                 
                 val wallDeferred = async { repository.getUserWall(uId) }

@@ -101,13 +101,27 @@ fun ChatScreen(viewModel: ChatViewModel, onBackClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.align(Alignment.Center)
                 )
-                is ChatState.Success -> MessageList(
-                    response = currentState.history,
-                    profiles = currentState.profiles,
-                    groups = currentState.groups,
-                    playingAudioUrl = playingAudioUrl,
-                    onAudioClick = { viewModel.playAudio(it) }
-                )
+                is ChatState.Success -> {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        if (currentState.typingUsers.isNotEmpty()) {
+                            Text(
+                                text = "Печатает...",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                            )
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            MessageList(
+                                response = currentState.history,
+                                profiles = currentState.profiles,
+                                groups = currentState.groups,
+                                playingAudioUrl = playingAudioUrl,
+                                onAudioClick = { viewModel.playAudio(it) }
+                            )
+                        }
+                    }
+                }
             }
         }
     }

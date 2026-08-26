@@ -1,13 +1,19 @@
 package com.reforged.client.ui.feed
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -19,7 +25,8 @@ import com.vk.sdk.api.users.dto.UsersUserFullDto
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
-    viewModel: FeedViewModel
+    viewModel: FeedViewModel,
+    onAuthorClick: (Long) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -42,7 +49,8 @@ fun FeedScreen(
                     currentState.posts,
                     currentState.profiles,
                     currentState.groups,
-                    currentState.badges
+                    currentState.badges,
+                    onAuthorClick
                 )
             }
         }
@@ -54,14 +62,15 @@ fun NewsList(
     posts: List<NewsfeedNewsfeedItemDto>,
     profiles: List<UsersUserFullDto>,
     groups: List<GroupsGroupFullDto>,
-    badges: Map<Long, List<BadgeDto>>
+    badges: Map<Long, List<BadgeDto>>,
+    onAuthorClick: (Long) -> Unit
 ) {
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(posts) { post ->
-            PostCard(post, profiles, groups, badges)
+            PostCard(post, profiles, groups, badges, onAuthorClick)
         }
     }
 }
@@ -71,7 +80,8 @@ fun PostCard(
     post: NewsfeedNewsfeedItemDto,
     profiles: List<UsersUserFullDto>,
     groups: List<GroupsGroupFullDto>,
-    badges: Map<Long, List<BadgeDto>>
+    badges: Map<Long, List<BadgeDto>>,
+    onAuthorClick: (Long) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -80,7 +90,7 @@ fun PostCard(
         Column(modifier = Modifier.padding(16.dp)) {
             val sourceId = getSourceId(post)
             if (sourceId != null) {
-                AuthorInfo(sourceId, profiles, groups, badges[sourceId] ?: emptyList())
+                AuthorInfo(sourceId, profiles, groups, badges[sourceId] ?: emptyList(), onAuthorClick)
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
@@ -91,18 +101,10 @@ fun PostCard(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     
-                    post.attachments?.forEach { attachment ->
-                        val photo = attachment.photo
-                        if (photo != null) {
-                            val url = photo.sizes?.lastOrNull()?.url
-                            AsyncImage(
-                                model = url,
-                                contentDescription = null,
-                                contentScale = ContentScale.FillWidth,
-                                modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
+                    val photos = post.attachments?.mapNotNull { it.photo } ?: emptyList()
+                    if (photos.isNotEmpty()) {
+                        PhotoCarousel(photos)
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
                 is NewsfeedNewsfeedItemDto.NewsfeedItemVideoDto -> {
@@ -123,41 +125,75 @@ fun PostCard(
                                 contentScale = ContentScale.FillWidth,
                                 modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
                             )
-                            // Play icon overlay
                             Surface(
                                 shape = MaterialTheme.shapes.extraLarge,
                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
                                 modifier = Modifier.size(48.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text("▶")
+                                    Icon(Icons.Rounded.PlayArrow, contentDescription = null)
                                 }
                             }
                         }
                     }
                 }
                 is NewsfeedNewsfeedItemDto.NewsfeedItemPhotoDto -> {
-                    val photo = post.photos?.items?.firstOrNull()
-                    if (photo != null) {
-                        if (!post.photos?.items.isNullOrEmpty() && (post.photos?.items?.size ?: 0) > 1) {
-                            Text(text = "Photos (${post.photos?.items?.size})", style = MaterialTheme.typography.labelSmall)
-                            Spacer(modifier = Modifier.height(4.dp))
-                        }
-                        
-                        post.photos?.items?.forEach { p ->
-                            val url = p.sizes?.lastOrNull()?.url
-                            AsyncImage(
-                                model = url,
-                                contentDescription = null,
-                                contentScale = ContentScale.FillWidth,
-                                modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
+                    val photos = post.photos?.items ?: emptyList()
+                    if (photos.isNotEmpty()) {
+                        PhotoCarousel(photos)
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
-                else -> {
-                    Text(text = "Unsupported item type: ${post.javaClass.simpleName}")
+                else -> {}
+            }
+        }
+    }
+}
+
+@Composable
+fun PhotoCarousel(photos: List<com.vk.sdk.api.photos.dto.PhotosPhotoDto>) {
+    if (photos.size == 1) {
+        val url = photos[0].sizes?.lastOrNull()?.url
+        AsyncImage(
+            model = url,
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
+        )
+    } else {
+        val pagerState = rememberPagerState(pageCount = { photos.size })
+        Column {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxWidth()
+                ) { page ->
+                    val url = photos[page].sizes?.lastOrNull()?.url
+                    AsyncImage(
+                        model = url,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                    )
+                }
+                
+                // Page indicator overlay
+                Surface(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    shape = MaterialTheme.shapes.extraSmall,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .align(Alignment.TopEnd)
+                ) {
+                    Text(
+                        text = "${pagerState.currentPage + 1} / ${photos.size}",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
             }
         }
@@ -169,7 +205,8 @@ fun AuthorInfo(
     sourceId: Long,
     profiles: List<UsersUserFullDto>,
     groups: List<GroupsGroupFullDto>,
-    badges: List<BadgeDto>
+    badges: List<BadgeDto>,
+    onAuthorClick: (Long) -> Unit
 ) {
     val name: String
     val photoUrl: String?
@@ -184,7 +221,10 @@ fun AuthorInfo(
         photoUrl = group?.photo100
     }
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.clickable { onAuthorClick(sourceId) }
+    ) {
         AsyncImage(
             model = photoUrl,
             contentDescription = null,
@@ -208,22 +248,22 @@ fun BadgesRow(badges: List<BadgeDto>) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         badges.forEach { badge ->
             val icon = when (badge.slug) {
-                "verified_donator" -> "✓"
-                "prometheus" -> "🔥"
-                "developer" -> "</>"
-                else -> ""
+                "verified_donator" -> Icons.Rounded.Verified
+                "prometheus" -> Icons.Rounded.Whatshot
+                "developer" -> Icons.Rounded.Code
+                else -> null
             }
-            if (icon.isNotEmpty()) {
-                Text(
-                    text = icon,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = when (badge.slug) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = badge.label,
+                    tint = when (badge.slug) {
                         "verified_donator" -> MaterialTheme.colorScheme.primary
                         "prometheus" -> MaterialTheme.colorScheme.error
                         "developer" -> MaterialTheme.colorScheme.secondary
                         else -> MaterialTheme.colorScheme.onSurface
                     },
-                    modifier = Modifier.padding(horizontal = 2.dp)
+                    modifier = Modifier.size(16.dp).padding(horizontal = 1.dp)
                 )
             }
         }

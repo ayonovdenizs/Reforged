@@ -1,20 +1,20 @@
 package com.reforged.client.ui.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Comment
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,7 +35,8 @@ import com.vk.sdk.api.wall.dto.WallWallItemDto
 fun ProfileScreen(
     viewModel: ProfileViewModel,
     onSettingsClick: () -> Unit,
-    onLogoutClick: () -> Unit
+    onLogoutClick: () -> Unit,
+    onBackClick: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -43,9 +44,18 @@ fun ProfileScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Профиль") },
+                navigationIcon = {
+                    if (viewModel.userId != null) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                        }
+                    }
+                },
                 actions = {
-                    IconButton(onClick = onLogoutClick) {
-                        Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = "Выход")
+                    if (viewModel.userId == null) {
+                        IconButton(onClick = onLogoutClick) {
+                            Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = "Выход")
+                        }
                     }
                 }
             )
@@ -65,6 +75,7 @@ fun ProfileScreen(
                     photos = currentState.photos,
                     videos = currentState.videos,
                     badges = currentState.badges,
+                    isOwnProfile = viewModel.userId == null,
                     onSettingsClick = onSettingsClick
                 )
             }
@@ -79,6 +90,7 @@ fun ProfileContent(
     photos: List<PhotosPhotoDto>,
     videos: List<VideoVideoFullDto>,
     badges: List<BadgeDto>,
+    isOwnProfile: Boolean,
     onSettingsClick: () -> Unit
 ) {
     Column(
@@ -147,20 +159,30 @@ fun ProfileContent(
                     .padding(vertical = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(
-                    onClick = { /* Edit */ },
-                    modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Text("Редактировать")
-                }
-                
-                Button(
-                    onClick = onSettingsClick,
-                    modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Text("Настройки")
+                if (isOwnProfile) {
+                    Button(
+                        onClick = { /* Edit */ },
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text("Редактировать")
+                    }
+                    
+                    Button(
+                        onClick = onSettingsClick,
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text("Настройки")
+                    }
+                } else {
+                    Button(
+                        onClick = { /* Send Message */ },
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text("Сообщение")
+                    }
                 }
             }
 
@@ -254,13 +276,25 @@ fun ProfileContent(
 
 @Composable
 fun BadgeView(badge: BadgeDto) {
-    val emoji = when (badge.slug) {
-        "verified_donator" -> "✅"
-        "prometheus" -> "🔥"
-        "developer" -> "👨‍💻"
-        else -> "✨"
+    val icon = when (badge.slug) {
+        "verified_donator" -> Icons.Rounded.Verified
+        "prometheus" -> Icons.Rounded.Whatshot
+        "developer" -> Icons.Rounded.Code
+        else -> null
     }
-    Text(text = emoji, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 2.dp))
+    if (icon != null) {
+        Icon(
+            imageVector = icon,
+            contentDescription = badge.label,
+            tint = when (badge.slug) {
+                "verified_donator" -> MaterialTheme.colorScheme.primary
+                "prometheus" -> MaterialTheme.colorScheme.error
+                "developer" -> MaterialTheme.colorScheme.secondary
+                else -> MaterialTheme.colorScheme.onSurface
+            },
+            modifier = Modifier.size(18.dp)
+        )
+    }
 }
 
 @Composable
@@ -269,16 +303,13 @@ fun WallPostItem(post: WallWallItemDto.WallWallpostFullDto) {
         if (!post.text.isNullOrEmpty()) {
             Text(text = post.text!!, style = MaterialTheme.typography.bodyMedium)
         }
-        post.attachments?.forEach { attachment ->
-            attachment.photo?.let { photo ->
-                AsyncImage(
-                    model = photo.sizes?.lastOrNull()?.url,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxWidth().height(200.dp).padding(top = 8.dp).clip(MaterialTheme.shapes.small),
-                    contentScale = ContentScale.Crop
-                )
-            }
+        
+        val photos = post.attachments?.mapNotNull { it.photo } ?: emptyList()
+        if (photos.isNotEmpty()) {
+            PhotoCarousel(photos)
+            Spacer(modifier = Modifier.height(8.dp))
         }
+
         Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Favorite, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Gray)
@@ -286,6 +317,55 @@ fun WallPostItem(post: WallWallItemDto.WallWallpostFullDto) {
             Spacer(modifier = Modifier.width(16.dp))
             Icon(Icons.AutoMirrored.Rounded.Comment, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Gray)
             Text(text = " ${post.comments?.count ?: 0}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+        }
+    }
+}
+
+@Composable
+fun PhotoCarousel(photos: List<com.vk.sdk.api.photos.dto.PhotosPhotoDto>) {
+    if (photos.size == 1) {
+        val url = photos[0].sizes?.lastOrNull()?.url
+        AsyncImage(
+            model = url,
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
+        )
+    } else {
+        val pagerState = rememberPagerState(pageCount = { photos.size })
+        Column {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxWidth()
+                ) { page ->
+                    val url = photos[page].sizes?.lastOrNull()?.url
+                    AsyncImage(
+                        model = url,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                    )
+                }
+                
+                Surface(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    shape = MaterialTheme.shapes.extraSmall,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .align(Alignment.TopEnd)
+                ) {
+                    Text(
+                        text = "${pagerState.currentPage + 1} / ${photos.size}",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
         }
     }
 }

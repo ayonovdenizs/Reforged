@@ -22,6 +22,9 @@ class ReforgedApp : Application(), Configuration.Provider {
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
+    @Inject
+    lateinit var tokenStorage: com.reforged.client.data.local.TokenStorage
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -29,6 +32,9 @@ class ReforgedApp : Application(), Configuration.Provider {
     
     override fun onCreate() {
         super.onCreate()
+        
+        com.google.firebase.FirebaseApp.initializeApp(this)
+        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
         
         createNotificationChannels()
         
@@ -63,6 +69,17 @@ class ReforgedApp : Application(), Configuration.Provider {
         
         VK.initialize(this)
         VK.setConfig(config)
+        
+        // Ensure token is synced with VK SDK if it exists in our storage
+        if (!VK.isLoggedIn() && tokenStorage.accessToken != null) {
+            VK.saveAccessToken(
+                userId = com.vk.dto.common.id.UserId(tokenStorage.userId),
+                accessToken = tokenStorage.accessToken!!,
+                secret = null,
+                expiresInSec = -1,
+                createdMs = System.currentTimeMillis()
+            )
+        }
     }
 
     private fun createNotificationChannels() {

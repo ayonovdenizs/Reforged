@@ -43,11 +43,17 @@ class NewsfeedInterceptor(
                             val isRecommended = type == "recommended" || type == "recommended_groups" || 
                                               type == "recommended_playlists" || type == "recommended_audios"
                             
-                            // CRITICAL: We MUST remove types that are not supported by the SDK to avoid crashes
-                            // The SDK 4.1.0 doesn't have mappings for many new types like 'recommended_groups'
-                            val isUnsupportedBySdk = type == "recommended_groups"
+                            // Filter out "added photo" notifications which are often just spammy in the feed
+                            val isPhotoNotification = type == "photo" || type == "photos"
                             
-                            if ((!isAd || !blockAds) && (!isRecommended || !blockRecommended) && !isUnsupportedBySdk) {
+                            // CRITICAL: We MUST remove types that are not supported by the SDK to avoid crashes
+                            val isUnsupportedBySdk = type == "recommended_groups" || 
+                                              type == "recommended_audios" || 
+                                              type == "recommended_playlists" ||
+                                              type == "stories" ||
+                                              type == "clips"
+                            
+                            if ((!isAd || !blockAds) && (!isRecommended || !blockRecommended) && !isUnsupportedBySdk && !isPhotoNotification) {
                                 filteredItems.put(item)
                             }
                         }

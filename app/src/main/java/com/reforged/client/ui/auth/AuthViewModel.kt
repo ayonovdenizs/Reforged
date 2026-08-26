@@ -62,13 +62,17 @@ class AuthViewModel @Inject constructor(
                         tokenStorage.accessToken = response.access_token
                         tokenStorage.userId = uId
                         
+                        // Set expiresIn to -1 for offline/permanent token if it's 0 or null
+                        val expiresIn = if (response.expires_in == null || response.expires_in == 0) -1 else response.expires_in
+                        
                         VK.saveAccessToken(
                             userId = UserId(uId),
                             accessToken = response.access_token,
                             secret = response.secret,
-                            expiresInSec = response.expires_in ?: 0,
+                            expiresInSec = expiresIn,
                             createdMs = System.currentTimeMillis()
                         )
+                        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setUserId(uId.toString())
                         _authState.value = AuthState.Success(response.access_token)
                         _isAuthorized.value = true
                     }

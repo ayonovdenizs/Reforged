@@ -143,4 +143,16 @@ class MessagesRepository @Inject constructor(
             }
         })
     }
+
+    suspend fun markAsRead(peerId: Long): Result<com.vk.sdk.api.base.dto.BaseOkResponseDto> = suspendCancellableCoroutine { continuation ->
+        VK.execute(MessagesService().messagesMarkAsRead(peerId = UserId(peerId)), object : VKApiCallback<com.vk.sdk.api.base.dto.BaseOkResponseDto> {
+            override fun success(result: com.vk.sdk.api.base.dto.BaseOkResponseDto) {
+                continuation.resume(Result.success(result))
+            }
+
+            override fun fail(error: Exception) {
+                continuation.resume(Result.failure(error))
+            }
+        })
+    }
 }
