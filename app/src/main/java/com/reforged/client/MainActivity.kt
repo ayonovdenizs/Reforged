@@ -157,7 +157,12 @@ fun MainScreen(onLogout: () -> Unit) {
         ) {
             composable(NavigationItem.Feed.route) {
                 val feedViewModel: FeedViewModel = hiltViewModel()
-                FeedScreen(viewModel = feedViewModel)
+                FeedScreen(
+                    viewModel = feedViewModel,
+                    onAuthorClick = { userId ->
+                        navController.navigate("profile/$userId")
+                    }
+                )
             }
             composable(NavigationItem.Messages.route) {
                 val messagesViewModel: MessagesViewModel = hiltViewModel()
@@ -188,6 +193,18 @@ fun MainScreen(onLogout: () -> Unit) {
                     viewModel = profileViewModel,
                     onSettingsClick = { navController.navigate(NavigationItem.Settings.route) },
                     onLogoutClick = onLogout
+                )
+            }
+            composable(
+                route = "profile/{userId}",
+                arguments = listOf(navArgument("userId") { type = NavType.LongType })
+            ) {
+                val profileViewModel: ProfileViewModel = hiltViewModel()
+                ProfileScreen(
+                    viewModel = profileViewModel,
+                    onSettingsClick = {},
+                    onLogoutClick = {},
+                    onBackClick = { navController.popBackStack() }
                 )
             }
             composable(NavigationItem.Settings.route) {
