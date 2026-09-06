@@ -1,6 +1,5 @@
 package com.reforged.client.data.repository
 
-import com.google.gson.Gson
 import com.reforged.client.data.local.TokenStorage
 import com.reforged.client.data.remote.*
 import com.reforged.client.data.remote.api.VKService
@@ -12,19 +11,16 @@ class ProfileRepository @Inject constructor(
     private val vkService: VKService,
     private val tokenStorage: TokenStorage
 ) {
-    private val gson = Gson()
-
     suspend fun getProfile(userId: Long = tokenStorage.userId): Result<UserDto> {
         return try {
             val response = vkService.getUsers(userIds = userId.toString())
             if (response.isSuccessful) {
                 val body = response.body()
-                val profileJson = body?.response?.firstOrNull()
-                if (profileJson != null) {
-                    val profile = gson.fromJson(profileJson, UserDto::class.java)
+                val profile = body?.response?.firstOrNull()
+                if (profile != null) {
                     Result.success(profile)
                 } else {
-                    Result.failure(Exception("Profile not found: ${body?.error?.error_msg}"))
+                    Result.failure(Exception("Profile not found: ${body?.error?.errorMsg}"))
                 }
             } else {
                 Result.failure(Exception("Network error: ${response.code()}"))
@@ -42,7 +38,7 @@ class ProfileRepository @Inject constructor(
                 if (body?.response != null) {
                     Result.success(body.response)
                 } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
                 }
             } else {
                 Result.failure(Exception("Network error: ${response.code()}"))
@@ -60,7 +56,7 @@ class ProfileRepository @Inject constructor(
                 if (body?.response != null) {
                     Result.success(body.response)
                 } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
                 }
             } else {
                 Result.failure(Exception("Network error: ${response.code()}"))
@@ -78,7 +74,7 @@ class ProfileRepository @Inject constructor(
                 if (body?.response != null) {
                     Result.success(body.response)
                 } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
                 }
             } else {
                 Result.failure(Exception("Network error: ${response.code()}"))

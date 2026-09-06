@@ -32,7 +32,7 @@ class MessagesRepository @Inject constructor(
                 if (body?.response != null) {
                     Result.success(body.response)
                 } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
                 }
             } else {
                 Result.failure(Exception("Network error: ${response.code()}"))
@@ -50,7 +50,7 @@ class MessagesRepository @Inject constructor(
                 if (body?.response != null) {
                     Result.success(body.response)
                 } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
                 }
             } else {
                 Result.failure(Exception("Network error: ${response.code()}"))
@@ -92,7 +92,7 @@ class MessagesRepository @Inject constructor(
                 if (body?.response != null) {
                     Result.success(body.response)
                 } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
                 }
             } else {
                 Result.failure(Exception("Network error: ${response.code()}"))
@@ -110,7 +110,7 @@ class MessagesRepository @Inject constructor(
                 if (body?.response != null) {
                     Result.success(body.response)
                 } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
                 }
             } else {
                 Result.failure(Exception("Network error: ${response.code()}"))
@@ -128,7 +128,7 @@ class MessagesRepository @Inject constructor(
                 if (body?.response != null) {
                     Result.success(body.response.uploadUrl)
                 } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
                 }
             } else {
                 Result.failure(Exception("Network error: ${response.code()}"))
@@ -189,7 +189,7 @@ class MessagesRepository @Inject constructor(
                 if (body?.response != null) {
                     Result.success(body.response)
                 } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
                 }
             } else {
                 Result.failure(Exception("Network error: ${response.code()}"))
