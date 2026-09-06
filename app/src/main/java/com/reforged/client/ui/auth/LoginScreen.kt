@@ -1,5 +1,7 @@
 package com.reforged.client.ui.auth
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,16 +16,32 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import android.app.Activity
+import android.content.Intent
 
 @Composable
 fun LoginScreen(viewModel: AuthViewModel) {
     val authState by viewModel.authState.collectAsState()
+    val context = LocalContext.current
+    
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val token = result.data?.getStringExtra("access_token")
+            val userId = result.data?.getLongExtra("user_id", 0L) ?: 0L
+            if (token != null) {
+                viewModel.onTokenCaptured(token, userId)
+            }
+        }
+    }
     
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -111,6 +129,18 @@ fun LoginScreen(viewModel: AuthViewModel) {
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("NEXT", style = MaterialTheme.typography.labelLarge)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    TextButton(
+                        onClick = { 
+                            val intent = Intent(context, AuthWebViewActivity::class.java)
+                            launcher.launch(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("LOGIN VIA BROWSER", style = MaterialTheme.typography.labelLarge)
                     }
                 }
                 

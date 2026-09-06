@@ -87,6 +87,11 @@ class MusicViewModel @Inject constructor(
                 _isPlaying.value = isPlaying
             }
 
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                android.util.Log.e("MusicViewModel", "Player error: ${error.errorCodeName} (${error.errorCode})", error)
+                _state.value = MusicState.Error("Ошибка воспроизведения: ${error.message}")
+            }
+
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                 mediaItem?.mediaId?.let { id ->
                     val currentState = state.value as? MusicState.Success ?: return@let

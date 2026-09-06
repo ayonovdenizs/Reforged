@@ -8,10 +8,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.reforged.client.data.manager.LongPollEvent
 import com.reforged.client.data.manager.LongPollManager
 import com.reforged.client.data.repository.MessagesRepository
-import com.vk.sdk.api.groups.dto.GroupsGroupFullDto
-import com.vk.sdk.api.messages.dto.MessagesGetConversationByIdExtendedDto
-import com.vk.sdk.api.messages.dto.MessagesGetHistoryResponseDto
-import com.vk.sdk.api.users.dto.UsersUserFullDto
+import com.reforged.client.data.remote.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -25,11 +22,11 @@ import javax.inject.Inject
 sealed class ChatState {
     object Loading : ChatState()
     data class Success(
-        val history: MessagesGetHistoryResponseDto,
+        val history: HistoryResponse,
         val title: String = "Chat",
         val photoUrl: String? = null,
-        val profiles: List<UsersUserFullDto> = emptyList(),
-        val groups: List<GroupsGroupFullDto> = emptyList(),
+        val profiles: List<UserDto> = emptyList(),
+        val groups: List<GroupDto> = emptyList(),
         val playingAudioUrl: String? = null,
         val typingUsers: List<Long> = emptyList()
     ) : ChatState()
@@ -91,33 +88,33 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             if (!isSilent) _state.value = ChatState.Loading
             
-            val historyDeferred: Deferred<Result<MessagesGetHistoryResponseDto>> = async { repository.getHistory(peerId) }
-            val convDeferred: Deferred<Result<MessagesGetConversationByIdExtendedDto>> = async { repository.getConversation(peerId) }
+            val historyDeferred: Deferred<Result<HistoryResponse>> = async { repository.getHistory(peerId) }
+            val convDeferred: Deferred<Result<List<ConversationDto>>> = async { repository.getConversation(peerId) }
             
             val historyResult = historyDeferred.await()
             val convResult = convDeferred.await()
             
             historyResult.onSuccess { history ->
                 val conv = convResult.getOrNull()
-                val item = conv?.items?.firstOrNull()
+                val item = conv?.firstOrNull()
                 
                 var title = "Chat"
                 var photoUrl: String? = null
                 
                 if (item?.chatSettings != null) {
-                    title = item.chatSettings!!.title
-                    photoUrl = item.chatSettings!!.photo?.photo100
+                    title = item.chatSettings.title
+                    photoUrl = item.chatSettings.photo?.photo100
                 } else if (peerId > 0) {
-                    val user = conv?.profiles?.find { it.id.value == peerId }
+                    val user = history.profiles?.find { it.id == peerId }
                     if (user != null) {
                         title = "${user.firstName} ${user.lastName}"
-                        photoUrl = user.photo100
+                        photoUrl = user.photo200
                     }
                 } else {
-                    val group = conv?.groups?.find { it.id.value == -peerId }
+                    val group = history.groups?.find { it.id == -peerId }
                     if (group != null) {
-                        title = group.name ?: "Group"
-                        photoUrl = group.photo100
+                        title = group.name
+                        photoUrl = group.photo200
                     }
                 }
                 
@@ -127,8 +124,8 @@ class ChatViewModel @Inject constructor(
                     history = history,
                     title = title,
                     photoUrl = photoUrl,
-                    profiles = conv?.profiles ?: emptyList(),
-                    groups = conv?.groups ?: emptyList(),
+                    profiles = history.profiles ?: emptyList(),
+                    groups = history.groups ?: emptyList(),
                     playingAudioUrl = current?.playingAudioUrl,
                     typingUsers = current?.typingUsers ?: emptyList()
                 )

@@ -49,10 +49,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.firebase.crashlytics)
 
-    // VK SDK
-    implementation(libs.vk.sdk.core)
-    implementation(libs.vk.sdk.api)
-
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

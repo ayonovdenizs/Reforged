@@ -1,24 +1,23 @@
 package com.reforged.client.data.repository
 
 import com.reforged.client.data.local.TokenStorage
-import com.reforged.client.data.remote.AudioApi
 import com.reforged.client.data.remote.AudioTrackDto
 import com.reforged.client.data.remote.CatalogSectionDto
+import com.reforged.client.data.remote.api.VKService
 import com.reforged.client.util.AudioDecoder
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class MusicRepository @Inject constructor(
-    private val audioApi: AudioApi,
+    private val vkService: VKService,
     private val tokenStorage: TokenStorage
 ) {
     suspend fun getMyMusic(offset: Int = 0, count: Int = 50): Result<List<AudioTrackDto>> {
-        val token = tokenStorage.accessToken ?: return Result.failure(Exception("Not authorized"))
         val userId = tokenStorage.userId
 
         return try {
-            val response = audioApi.getAudio(userId, token, offset = offset, count = count)
+            val response = vkService.getAudio(userId, offset = offset, count = count)
             if (response.isSuccessful) {
                 val wrapper = response.body()
                 if (wrapper?.response != null) {
@@ -27,7 +26,7 @@ class MusicRepository @Inject constructor(
                     }
                     Result.success(tracks)
                 } else if (wrapper?.error != null) {
-                    Result.failure(Exception("VK Error ${wrapper.error.error_code}: ${wrapper.error.error_msg}"))
+                    Result.failure(Exception("VK Error ${wrapper.error.errorCode}: ${wrapper.error.errorMsg}"))
                 } else {
                     Result.failure(Exception("Unknown response structure"))
                 }
@@ -40,11 +39,10 @@ class MusicRepository @Inject constructor(
     }
 
     suspend fun getCatalog(): Result<List<CatalogSectionDto>> {
-        val token = tokenStorage.accessToken ?: return Result.failure(Exception("Not authorized"))
         val userId = tokenStorage.userId
 
         return try {
-            val response = audioApi.getCatalog(token)
+            val response = vkService.getCatalog()
             if (response.isSuccessful) {
                 val wrapper = response.body()
                 if (wrapper?.response != null) {
@@ -55,7 +53,7 @@ class MusicRepository @Inject constructor(
                     }
                     Result.success(sections)
                 } else if (wrapper?.error != null) {
-                    Result.failure(Exception("VK Error ${wrapper.error.error_code}: ${wrapper.error.error_msg}"))
+                    Result.failure(Exception("VK Error ${wrapper.error.errorCode}: ${wrapper.error.errorMsg}"))
                 } else {
                     Result.failure(Exception("Unknown response structure"))
                 }

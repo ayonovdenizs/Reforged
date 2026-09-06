@@ -17,10 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.reforged.client.data.remote.BadgeDto
-import com.vk.sdk.api.groups.dto.GroupsGroupFullDto
-import com.vk.sdk.api.newsfeed.dto.NewsfeedNewsfeedItemDto
-import com.vk.sdk.api.users.dto.UsersUserFullDto
+import com.reforged.client.data.remote.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,9 +56,9 @@ fun FeedScreen(
 
 @Composable
 fun NewsList(
-    posts: List<NewsfeedNewsfeedItemDto>,
-    profiles: List<UsersUserFullDto>,
-    groups: List<GroupsGroupFullDto>,
+    posts: List<NewsItemDto>,
+    profiles: List<UserDto>,
+    groups: List<GroupDto>,
     badges: Map<Long, List<BadgeDto>>,
     onAuthorClick: (Long) -> Unit
 ) {
@@ -77,9 +74,9 @@ fun NewsList(
 
 @Composable
 fun PostCard(
-    post: NewsfeedNewsfeedItemDto,
-    profiles: List<UsersUserFullDto>,
-    groups: List<GroupsGroupFullDto>,
+    post: NewsItemDto,
+    profiles: List<UserDto>,
+    groups: List<GroupDto>,
     badges: Map<Long, List<BadgeDto>>,
     onAuthorClick: (Long) -> Unit
 ) {
@@ -88,70 +85,50 @@ fun PostCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            val sourceId = getSourceId(post)
-            if (sourceId != null) {
-                AuthorInfo(sourceId, profiles, groups, badges[sourceId] ?: emptyList(), onAuthorClick)
+            val sourceId = post.sourceId
+            AuthorInfo(sourceId, profiles, groups, badges[sourceId] ?: emptyList(), onAuthorClick)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (!post.text.isNullOrEmpty()) {
+                Text(text = post.text, style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(8.dp))
             }
-
-            when (post) {
-                is NewsfeedNewsfeedItemDto.NewsfeedItemWallpostDto -> {
-                    if (!post.text.isNullOrEmpty()) {
-                        Text(text = post.text!!, style = MaterialTheme.typography.bodyMedium)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    
-                    val photos = post.attachments?.mapNotNull { it.photo } ?: emptyList()
-                    if (photos.isNotEmpty()) {
-                        PhotoCarousel(photos)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-                is NewsfeedNewsfeedItemDto.NewsfeedItemVideoDto -> {
-                    val video = post.video?.items?.firstOrNull()
-                    if (video != null) {
-                        Text(text = video.title ?: "Video", style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        if (!video.description.isNullOrEmpty()) {
-                            Text(text = video.description!!, style = MaterialTheme.typography.bodySmall)
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-                        
-                        val imageUrl = video.image?.lastOrNull()?.url
+            
+            val photos = post.attachments?.mapNotNull { it.photo } ?: emptyList()
+            if (photos.isNotEmpty()) {
+                PhotoCarousel(photos)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            
+            val videos = post.attachments?.mapNotNull { it.video } ?: emptyList()
+            if (videos.isNotEmpty()) {
+                // Show first video thumbnail
+                val video = videos.first()
+                val imageUrl = video.image?.lastOrNull()?.url
+                Box(contentAlignment = Alignment.Center) {
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.FillWidth,
+                        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
+                    )
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
+                        modifier = Modifier.size(48.dp)
+                    ) {
                         Box(contentAlignment = Alignment.Center) {
-                            AsyncImage(
-                                model = imageUrl,
-                                contentDescription = null,
-                                contentScale = ContentScale.FillWidth,
-                                modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
-                            )
-                            Surface(
-                                shape = MaterialTheme.shapes.extraLarge,
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
-                                modifier = Modifier.size(48.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                                }
-                            }
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = null)
                         }
                     }
                 }
-                is NewsfeedNewsfeedItemDto.NewsfeedItemPhotoDto -> {
-                    val photos = post.photos?.items ?: emptyList()
-                    if (photos.isNotEmpty()) {
-                        PhotoCarousel(photos)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-                else -> {}
             }
         }
     }
 }
 
 @Composable
-fun PhotoCarousel(photos: List<com.vk.sdk.api.photos.dto.PhotosPhotoDto>) {
+fun PhotoCarousel(photos: List<VkPhotoDto>) {
     if (photos.size == 1) {
         val url = photos[0].sizes?.lastOrNull()?.url
         AsyncImage(
@@ -203,8 +180,8 @@ fun PhotoCarousel(photos: List<com.vk.sdk.api.photos.dto.PhotosPhotoDto>) {
 @Composable
 fun AuthorInfo(
     sourceId: Long,
-    profiles: List<UsersUserFullDto>,
-    groups: List<GroupsGroupFullDto>,
+    profiles: List<UserDto>,
+    groups: List<GroupDto>,
     badges: List<BadgeDto>,
     onAuthorClick: (Long) -> Unit
 ) {
@@ -212,13 +189,13 @@ fun AuthorInfo(
     val photoUrl: String?
 
     if (sourceId > 0) {
-        val user = profiles.find { it.id.value == sourceId }
+        val user = profiles.find { it.id == sourceId }
         name = "${user?.firstName} ${user?.lastName}"
-        photoUrl = user?.photo100
+        photoUrl = user?.photo200
     } else {
-        val group = groups.find { it.id.value == -sourceId }
+        val group = groups.find { it.id == -sourceId }
         name = group?.name ?: "Unknown Group"
-        photoUrl = group?.photo100
+        photoUrl = group?.photo200
     }
 
     Row(
@@ -270,11 +247,4 @@ fun BadgesRow(badges: List<BadgeDto>) {
     }
 }
 
-fun getSourceId(post: NewsfeedNewsfeedItemDto): Long? {
-    return when (post) {
-        is NewsfeedNewsfeedItemDto.NewsfeedItemWallpostDto -> post.sourceId.value
-        is NewsfeedNewsfeedItemDto.NewsfeedItemPhotoDto -> post.sourceId.value
-        is NewsfeedNewsfeedItemDto.NewsfeedItemVideoDto -> post.sourceId.value
-        else -> null
-    }
-}
+

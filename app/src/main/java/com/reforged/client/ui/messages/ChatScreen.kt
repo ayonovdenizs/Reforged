@@ -23,11 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.vk.sdk.api.messages.dto.MessagesGetHistoryResponseDto
-import com.vk.sdk.api.messages.dto.MessagesMessageDto
-import com.vk.sdk.api.users.dto.UsersUserFullDto
-import com.vk.sdk.api.groups.dto.GroupsGroupFullDto
-import com.vk.sdk.api.messages.dto.MessagesAudioMessageDto
+import com.reforged.client.data.remote.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -129,9 +125,9 @@ fun ChatScreen(viewModel: ChatViewModel, onBackClick: () -> Unit) {
 
 @Composable
 fun MessageList(
-    response: MessagesGetHistoryResponseDto,
-    profiles: List<UsersUserFullDto>,
-    groups: List<GroupsGroupFullDto>,
+    response: HistoryResponse,
+    profiles: List<UserDto>,
+    groups: List<GroupDto>,
     playingAudioUrl: String?,
     onAudioClick: (String) -> Unit
 ) {
@@ -158,26 +154,26 @@ fun MessageList(
 
 @Composable
 fun MessageItem(
-    message: MessagesMessageDto,
-    profiles: List<UsersUserFullDto>,
-    groups: List<GroupsGroupFullDto>,
+    message: MessageDto,
+    profiles: List<UserDto>,
+    groups: List<GroupDto>,
     playingAudioUrl: String?,
     onAudioClick: (String) -> Unit
 ) {
-    val isOut = message.out?.value == 1
-    val senderId = message.fromId.value
+    val isOut = message.out == 1
+    val senderId = message.fromId
     
     val senderName: String?
     val senderPhoto: String?
     
     if (senderId > 0) {
-        val user = profiles.find { it.id.value == senderId }
+        val user = profiles.find { it.id == senderId }
         senderName = user?.let { "${it.firstName} ${it.lastName}" }
-        senderPhoto = user?.photo100
+        senderPhoto = user?.photo200
     } else {
-        val group = groups.find { it.id.value == -senderId }
+        val group = groups.find { it.id == -senderId }
         senderName = group?.name
-        senderPhoto = group?.photo100
+        senderPhoto = group?.photo200
     }
 
     Row(
@@ -262,7 +258,7 @@ fun MessageItem(
 
 @Composable
 fun AudioMessageItem(
-    audio: MessagesAudioMessageDto,
+    audio: AudioMessageDto,
     isPlaying: Boolean,
     onPlayClick: () -> Unit
 ) {

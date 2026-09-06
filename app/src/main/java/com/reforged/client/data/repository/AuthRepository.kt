@@ -5,7 +5,6 @@ import com.google.gson.Gson
 import com.reforged.client.R
 import com.reforged.client.data.remote.AuthApi
 import com.reforged.client.data.remote.AuthResponse
-import com.vk.api.sdk.VK
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

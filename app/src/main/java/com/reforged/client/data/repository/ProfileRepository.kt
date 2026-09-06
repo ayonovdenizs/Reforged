@@ -1,87 +1,90 @@
 package com.reforged.client.data.repository
 
-import com.vk.api.sdk.VK
-import com.vk.api.sdk.VKApiCallback
-import com.vk.dto.common.id.UserId
-import com.vk.sdk.api.photos.PhotosService
-import com.vk.sdk.api.photos.dto.PhotosGetResponseDto
-import com.vk.sdk.api.users.UsersService
-import com.vk.sdk.api.users.dto.UsersFieldsDto
-import com.vk.sdk.api.users.dto.UsersUserFullDto
-import com.vk.sdk.api.video.VideoService
-import com.vk.sdk.api.video.dto.VideoGetResponseDto
-import com.vk.sdk.api.wall.WallService
-import com.vk.sdk.api.wall.dto.WallGetResponseDto
-import kotlinx.coroutines.suspendCancellableCoroutine
+import com.google.gson.Gson
+import com.reforged.client.data.local.TokenStorage
+import com.reforged.client.data.remote.*
+import com.reforged.client.data.remote.api.VKService
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.coroutines.resume
 
 @Singleton
-class ProfileRepository @Inject constructor() {
+class ProfileRepository @Inject constructor(
+    private val vkService: VKService,
+    private val tokenStorage: TokenStorage
+) {
+    private val gson = Gson()
 
-    suspend fun getProfile(userId: Long = VK.getUserId().value): Result<UsersUserFullDto> = suspendCancellableCoroutine { continuation ->
-        val fields = listOf(
-            UsersFieldsDto.PHOTO_200,
-            UsersFieldsDto.ABOUT,
-            UsersFieldsDto.BDATE,
-            UsersFieldsDto.CITY,
-            UsersFieldsDto.COUNTRY,
-            UsersFieldsDto.FOLLOWERS_COUNT,
-            UsersFieldsDto.COUNTERS,
-            UsersFieldsDto.STATUS,
-            UsersFieldsDto.SCREEN_NAME
-        )
-        
-        VK.execute(UsersService().usersGet(userIds = listOf(UserId(userId)), fields = fields), object : VKApiCallback<List<UsersUserFullDto>> {
-            override fun success(result: List<UsersUserFullDto>) {
-                val profile = result.firstOrNull()
-                if (profile != null) {
-                    continuation.resume(Result.success(profile))
+    suspend fun getProfile(userId: Long = tokenStorage.userId): Result<UserDto> {
+        return try {
+            val response = vkService.getUsers(userIds = userId.toString())
+            if (response.isSuccessful) {
+                val body = response.body()
+                val profileJson = body?.response?.firstOrNull()
+                if (profileJson != null) {
+                    val profile = gson.fromJson(profileJson, UserDto::class.java)
+                    Result.success(profile)
                 } else {
-                    continuation.resume(Result.failure(Exception("Profile not found")))
+                    Result.failure(Exception("Profile not found: ${body?.error?.error_msg}"))
                 }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
             }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    suspend fun getUserWall(userId: Long, offset: Int = 0, count: Int = 20): Result<WallGetResponseDto> = suspendCancellableCoroutine { continuation ->
-        VK.execute(WallService().wallGet(ownerId = UserId(userId), offset = offset, count = count, extended = true), object : VKApiCallback<WallGetResponseDto> {
-            override fun success(result: WallGetResponseDto) {
-                continuation.resume(Result.success(result))
+    suspend fun getUserWall(userId: Long, offset: Int = 0, count: Int = 20): Result<WallResponse> {
+        return try {
+            val response = vkService.getWall(ownerId = userId, offset = offset, count = count)
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.response != null) {
+                    Result.success(body.response)
+                } else {
+                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
             }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    suspend fun getUserPhotos(userId: Long, offset: Int = 0, count: Int = 10): Result<PhotosGetResponseDto> = suspendCancellableCoroutine { continuation ->
-        VK.execute(PhotosService().photosGet(ownerId = UserId(userId), albumId = "profile", offset = offset, count = count, extended = true), object : VKApiCallback<PhotosGetResponseDto> {
-            override fun success(result: PhotosGetResponseDto) {
-                continuation.resume(Result.success(result))
+    suspend fun getUserPhotos(userId: Long, offset: Int = 0, count: Int = 10): Result<PhotosResponse> {
+        return try {
+            val response = vkService.getPhotos(ownerId = userId, offset = offset, count = count)
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.response != null) {
+                    Result.success(body.response)
+                } else {
+                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
             }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    suspend fun getUserVideos(userId: Long, offset: Int = 0, count: Int = 10): Result<VideoGetResponseDto> = suspendCancellableCoroutine { continuation ->
-        VK.execute(VideoService().videoGet(ownerId = UserId(userId), offset = offset, count = count, extended = true), object : VKApiCallback<VideoGetResponseDto> {
-            override fun success(result: VideoGetResponseDto) {
-                continuation.resume(Result.success(result))
+    suspend fun getUserVideos(userId: Long, offset: Int = 0, count: Int = 10): Result<VideoResponse> {
+        return try {
+            val response = vkService.getVideos(ownerId = userId, offset = offset, count = count)
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.response != null) {
+                    Result.success(body.response)
+                } else {
+                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
             }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

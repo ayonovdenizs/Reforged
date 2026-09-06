@@ -25,11 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.reforged.client.data.remote.BadgeDto
-import com.vk.sdk.api.photos.dto.PhotosPhotoDto
-import com.vk.sdk.api.users.dto.UsersUserFullDto
-import com.vk.sdk.api.video.dto.VideoVideoFullDto
-import com.vk.sdk.api.wall.dto.WallWallItemDto
+import com.reforged.client.data.remote.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,10 +82,10 @@ fun ProfileScreen(
 
 @Composable
 fun ProfileContent(
-    profile: UsersUserFullDto,
-    wallPosts: List<WallWallItemDto>,
-    photos: List<PhotosPhotoDto>,
-    videos: List<VideoVideoFullDto>,
+    profile: UserDto,
+    wallPosts: List<WallPostDto>,
+    photos: List<VkPhotoDto>,
+    videos: List<VideoDto>,
     badges: List<BadgeDto>,
     isOwnProfile: Boolean,
     onSettingsClick: () -> Unit
@@ -147,7 +143,7 @@ fun ProfileContent(
             
             if (!profile.status.isNullOrEmpty()) {
                 Text(
-                    text = profile.status!!,
+                    text = profile.status,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
@@ -265,10 +261,8 @@ fun ProfileContent(
         )
         
         wallPosts.forEach { item ->
-            if (item is WallWallItemDto.WallWallpostFullDto) {
-                WallPostItem(item)
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-            }
+            WallPostItem(item)
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
         }
         
         Spacer(modifier = Modifier.height(32.dp))
@@ -299,10 +293,10 @@ fun BadgeView(badge: BadgeDto) {
 }
 
 @Composable
-fun WallPostItem(post: WallWallItemDto.WallWallpostFullDto) {
+fun WallPostItem(post: WallPostDto) {
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        if (!post.text.isNullOrEmpty()) {
-            Text(text = post.text!!, style = MaterialTheme.typography.bodyMedium)
+        if (post.text.isNotEmpty()) {
+            Text(text = post.text, style = MaterialTheme.typography.bodyMedium)
         }
         
         val photos = post.attachments?.mapNotNull { it.photo } ?: emptyList()
@@ -317,13 +311,13 @@ fun WallPostItem(post: WallWallItemDto.WallWallpostFullDto) {
             Text(text = " ${post.likes?.count ?: 0}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
             Spacer(modifier = Modifier.width(16.dp))
             Icon(Icons.AutoMirrored.Rounded.Comment, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Gray)
-            Text(text = " ${post.comments?.count ?: 0}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            // Comment count is not directly in WallPostDto, maybe in future
         }
     }
 }
 
 @Composable
-fun PhotoCarousel(photos: List<com.vk.sdk.api.photos.dto.PhotosPhotoDto>) {
+fun PhotoCarousel(photos: List<VkPhotoDto>) {
     if (photos.size == 1) {
         val url = photos[0].sizes?.lastOrNull()?.url
         AsyncImage(

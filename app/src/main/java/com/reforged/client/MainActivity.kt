@@ -56,10 +56,23 @@ class MainActivity : ComponentActivity() {
 
     private val authViewModel: AuthViewModel by viewModels()
 
+    private val logoutReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            authViewModel.logout()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         scheduleNotifications()
+        
+        val filter = android.content.IntentFilter("com.reforged.client.LOGOUT")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(logoutReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(logoutReceiver, filter)
+        }
         
         setContent {
             ReforgedTheme {
@@ -80,6 +93,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(logoutReceiver)
+        } catch (e: Exception) {}
     }
 
     private fun scheduleNotifications() {

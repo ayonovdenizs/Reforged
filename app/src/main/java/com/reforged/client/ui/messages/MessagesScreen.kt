@@ -14,9 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.vk.sdk.api.messages.dto.MessagesConversationWithMessageDto
-import com.vk.sdk.api.messages.dto.MessagesGetConversationsResponseDto
-import com.vk.sdk.api.users.dto.UsersUserFullDto
+import com.reforged.client.data.remote.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +46,7 @@ fun MessagesScreen(viewModel: MessagesViewModel, onConversationClick: (Long) -> 
 
 @Composable
 fun ConversationList(
-    response: MessagesGetConversationsResponseDto,
+    response: ConversationsResponse,
     onConversationClick: (Long) -> Unit,
     onLoadMore: () -> Unit
 ) {
@@ -61,7 +59,7 @@ fun ConversationList(
             }
             
             ConversationItem(item, response.profiles ?: emptyList(), response.groups ?: emptyList(), onClick = {
-                onConversationClick(item.conversation.peer.id.value)
+                onConversationClick(item.conversation.peer.id)
             })
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
         }
@@ -70,29 +68,26 @@ fun ConversationList(
 
 @Composable
 fun ConversationItem(
-    item: MessagesConversationWithMessageDto,
-    profiles: List<UsersUserFullDto>,
-    groups: List<com.vk.sdk.api.groups.dto.GroupsGroupFullDto>,
+    item: ConversationItemDto,
+    profiles: List<UserDto>,
+    groups: List<GroupDto>,
     onClick: () -> Unit
 ) {
-    val peerId = item.conversation.peer.id.value
+    val peerId = item.conversation.peer.id
     val title: String
     val photoUrl: String?
 
     if (item.conversation.chatSettings != null) {
-        title = item.conversation.chatSettings!!.title
-        photoUrl = item.conversation.chatSettings!!.photo?.photo100
+        title = item.conversation.chatSettings.title
+        photoUrl = item.conversation.chatSettings.photo?.photo100
     } else if (peerId > 0) {
-        val user = profiles.find { it.id.value == peerId }
+        val user = profiles.find { it.id == peerId }
         title = if (user != null) "${user.firstName} ${user.lastName}" else "User $peerId"
-        photoUrl = user?.photo100
-    } else if (peerId < 0) {
-        val group = groups.find { it.id.value == -peerId }
-        title = group?.name ?: "Community $peerId"
-        photoUrl = group?.photo100
+        photoUrl = user?.photo200
     } else {
-        title = "Unknown"
-        photoUrl = null
+        val group = groups.find { it.id == -peerId }
+        title = group?.name ?: "Community $peerId"
+        photoUrl = group?.photo200
     }
 
     Row(

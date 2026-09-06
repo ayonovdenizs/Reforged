@@ -71,11 +71,11 @@ data class PlaylistDto(
     val owner_id: Long,
     val title: String,
     val description: String?,
-    val photo: PhotoDto? = null,
+    val photo: AudioPhotoDto? = null,
     val count: Int
 )
 
-data class PhotoDto(
+data class AudioPhotoDto(
     val photo_300: String?,
     val photo_600: String?,
     val photo_1200: String?
@@ -95,11 +95,8 @@ data class AudioTrackDto(
 
 data class AlbumDto(
     val id: Long,
-    val thumb: PhotoDto? = null,
+    val thumb: AudioPhotoDto? = null,
     val title: String?
 )
 
-data class VkError(
-    val error_code: Int,
-    val error_msg: String
-)
+

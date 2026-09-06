@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.reforged.client.data.manager.LongPollEvent
 import com.reforged.client.data.manager.LongPollManager
 import com.reforged.client.data.repository.MessagesRepository
-import com.vk.sdk.api.messages.dto.MessagesGetConversationsResponseDto
+import com.reforged.client.data.remote.ConversationsResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +15,7 @@ import javax.inject.Inject
 
 sealed class MessagesState {
     object Loading : MessagesState()
-    data class Success(val response: MessagesGetConversationsResponseDto) : MessagesState()
+    data class Success(val response: ConversationsResponse) : MessagesState()
     data class Error(val message: String) : MessagesState()
 }
 

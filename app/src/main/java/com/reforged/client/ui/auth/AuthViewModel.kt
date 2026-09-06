@@ -4,8 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.reforged.client.data.local.TokenStorage
 import com.reforged.client.data.repository.AuthRepository
-import com.vk.api.sdk.VK
-import com.vk.dto.common.id.UserId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +25,7 @@ class AuthViewModel @Inject constructor(
     private val tokenStorage: TokenStorage
 ) : ViewModel() {
 
-    private val _isAuthorized = MutableStateFlow(VK.isLoggedIn())
+    private val _isAuthorized = MutableStateFlow(tokenStorage.accessToken != null)
     val isAuthorized: StateFlow<Boolean> = _isAuthorized
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
@@ -62,16 +60,6 @@ class AuthViewModel @Inject constructor(
                         tokenStorage.accessToken = response.access_token
                         tokenStorage.userId = uId
                         
-                        // Set expiresIn to -1 for offline/permanent token if it's 0 or null
-                        val expiresIn = if (response.expires_in == null || response.expires_in == 0) -1 else response.expires_in
-                        
-                        VK.saveAccessToken(
-                            userId = UserId(uId),
-                            accessToken = response.access_token,
-                            secret = response.secret,
-                            expiresInSec = expiresIn,
-                            createdMs = System.currentTimeMillis()
-                        )
                         com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setUserId(uId.toString())
                         _authState.value = AuthState.Success(response.access_token)
                         _isAuthorized.value = true
@@ -100,8 +88,20 @@ class AuthViewModel @Inject constructor(
     }
 
     fun logout() {
-        VK.logout()
+        tokenStorage.accessToken = null
+        tokenStorage.userId = 0L
         _isAuthorized.value = false
         _authState.value = AuthState.Idle
+    }
+
+    fun onTokenCaptured(token: String, uId: Long) {
+        viewModelScope.launch {
+            tokenStorage.accessToken = token
+            tokenStorage.userId = uId
+            
+            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setUserId(uId.toString())
+            _authState.value = AuthState.Success(token)
+            _isAuthorized.value = true
+        }
     }
 }

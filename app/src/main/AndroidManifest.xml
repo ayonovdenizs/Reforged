@@ -38,6 +38,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.auth.AuthWebViewActivity"
+            android:exported="false"
+            android:label="Вход через ВК"
+            android:theme="@style/Theme.Reforged" />
+
         <service
             android:name=".service.PlaybackService"
             android:enabled="true"

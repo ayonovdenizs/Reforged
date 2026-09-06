@@ -1,13 +1,10 @@
 package com.reforged.client.data.repository
 
 import com.reforged.client.data.local.MessageDao
-import com.vk.api.sdk.VK
-import com.vk.api.sdk.VKApiCallback
-import com.vk.dto.common.id.UserId
-import com.vk.sdk.api.docs.DocsService
-import com.vk.sdk.api.messages.MessagesService
-import com.vk.sdk.api.messages.dto.*
-import kotlinx.coroutines.suspendCancellableCoroutine
+import com.reforged.client.data.remote.*
+import com.reforged.client.data.remote.api.VKService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -16,106 +13,140 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.coroutines.resume
 import kotlin.random.Random
 
 @Singleton
 class MessagesRepository @Inject constructor(
-    private val messageDao: MessageDao
+    private val vkService: VKService,
+    private val messageDao: MessageDao,
+    private val okHttpClient: OkHttpClient
 ) {
 
     suspend fun getCachedConversations() = messageDao.getConversations()
 
-    suspend fun getConversations(offset: Int = 0, count: Int = 40): Result<MessagesGetConversationsResponseDto> = suspendCancellableCoroutine { continuation ->
-        VK.execute(MessagesService().messagesGetConversations(offset = offset, count = count, extended = true), object : VKApiCallback<MessagesGetConversationsResponseDto> {
-            override fun success(result: MessagesGetConversationsResponseDto) {
-                continuation.resume(Result.success(result))
+    suspend fun getConversations(offset: Int = 0, count: Int = 40): Result<ConversationsResponse> {
+        return try {
+            val response = vkService.getConversations(offset = offset, count = count)
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.response != null) {
+                    Result.success(body.response)
+                } else {
+                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
             }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    suspend fun getHistory(peerId: Long, offset: Int = 0, count: Int = 30): Result<MessagesGetHistoryResponseDto> = suspendCancellableCoroutine { continuation ->
-        VK.execute(MessagesService().messagesGetHistory(peerId = UserId(peerId), offset = offset, count = count, extended = true), object : VKApiCallback<MessagesGetHistoryResponseDto> {
-            override fun success(result: MessagesGetHistoryResponseDto) {
-                continuation.resume(Result.success(result))
+    suspend fun getHistory(peerId: Long, offset: Int = 0, count: Int = 30): Result<HistoryResponse> {
+        return try {
+            val response = vkService.getHistory(peerId = peerId, offset = offset, count = count)
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.response != null) {
+                    Result.success(body.response)
+                } else {
+                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
             }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    suspend fun getConversation(peerId: Long): Result<MessagesGetConversationByIdExtendedDto> = suspendCancellableCoroutine { continuation ->
-        VK.execute(MessagesService().messagesGetConversationsByIdExtended(peerIds = listOf(UserId(peerId))), object : VKApiCallback<MessagesGetConversationByIdExtendedDto> {
-            override fun success(result: MessagesGetConversationByIdExtendedDto) {
-                continuation.resume(Result.success(result))
-            }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
-    }
-
-    suspend fun sendMessage(peerId: Long, text: String, stickerId: Int? = null, attachments: List<String>? = null): Result<Int> = suspendCancellableCoroutine { continuation ->
-        val request = MessagesService().messagesSend(
-            peerId = UserId(peerId),
-            message = text,
-            randomId = Random.nextInt(),
-            stickerId = stickerId,
-            attachment = attachments?.joinToString(",")
-        )
-        VK.execute(request, object : VKApiCallback<Int> {
-            override fun success(result: Int) {
-                continuation.resume(Result.success(result))
-            }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
-    }
-
-    suspend fun getLongPollServer(): Result<MessagesLongpollParamsDto> = suspendCancellableCoroutine { continuation ->
-        VK.execute(MessagesService().messagesGetLongPollServer(), object : VKApiCallback<MessagesLongpollParamsDto> {
-            override fun success(result: MessagesLongpollParamsDto) {
-                continuation.resume(Result.success(result))
-            }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
-    }
-
-    suspend fun getDocsUploadServer(peerId: Long): Result<String> = suspendCancellableCoroutine { continuation ->
-        val request = DocsService().docsGetMessagesUploadServer(type = null, peerId = peerId.toInt())
-        VK.execute(request, object : VKApiCallback<com.vk.sdk.api.base.dto.BaseUploadServerDto> {
-            override fun success(result: com.vk.sdk.api.base.dto.BaseUploadServerDto) {
-                continuation.resume(Result.success(result.uploadUrl))
-            }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
-    }
-
-    suspend fun uploadDocument(uploadUrl: String, fileBytes: ByteArray, fileName: String): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    suspend fun getConversation(peerId: Long): Result<List<ConversationDto>> = withContext(Dispatchers.IO) {
         try {
-            val client = OkHttpClient()
+            val response = vkService.getConversationsById(peerIds = peerId.toString())
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.response != null) {
+                    Result.success(body.response)
+                } else {
+                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
+                }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun sendMessage(peerId: Long, text: String, stickerId: Int? = null, attachments: List<String>? = null): Result<Int> {
+        return try {
+            val response = vkService.sendMessage(
+                peerId = peerId,
+                randomId = Random.nextInt(),
+                message = text.ifEmpty { null },
+                stickerId = stickerId,
+                attachment = attachments?.joinToString(",")
+            )
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.response != null) {
+                    Result.success(body.response)
+                } else {
+                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getLongPollServer(): Result<LongPollParamsDto> {
+        return try {
+            val response = vkService.getLongPollServer()
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.response != null) {
+                    Result.success(body.response)
+                } else {
+                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getDocsUploadServer(peerId: Long): Result<String> {
+        return try {
+            val response = vkService.getDocsUploadServer(peerId = peerId)
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.response != null) {
+                    Result.success(body.response.uploadUrl)
+                } else {
+                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun uploadDocument(uploadUrl: String, fileBytes: ByteArray, fileName: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
             val body = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("file", fileName, fileBytes.toRequestBody("application/octet-stream".toMediaTypeOrNull()))
                 .build()
             
             val request = Request.Builder().url(uploadUrl).post(body).build()
-            val response = client.newCall(request).execute()
+            val response = okHttpClient.newCall(request).execute()
             val responseString = response.body?.string() ?: return@withContext Result.failure(Exception("Empty upload response"))
             
             val json = JSONObject(responseString)
@@ -131,28 +162,40 @@ class MessagesRepository @Inject constructor(
         }
     }
 
-    private suspend fun saveDocument(file: String): Result<String> = suspendCancellableCoroutine { continuation ->
-        VK.execute(DocsService().docsSave(file = file), object : VKApiCallback<com.vk.sdk.api.docs.dto.DocsSaveResponseDto> {
-            override fun success(result: com.vk.sdk.api.docs.dto.DocsSaveResponseDto) {
-                val doc = result.doc
-                continuation.resume(Result.success("doc${doc?.ownerId?.value}_${doc?.id}"))
+    private suspend fun saveDocument(file: String): Result<String> {
+        return try {
+            val response = vkService.saveDoc(file = file)
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.response != null) {
+                    val doc = body.response.doc
+                    Result.success("doc${doc?.ownerId}_${doc?.id}")
+                } else {
+                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
+                }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
             }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    suspend fun markAsRead(peerId: Long): Result<com.vk.sdk.api.base.dto.BaseOkResponseDto> = suspendCancellableCoroutine { continuation ->
-        VK.execute(MessagesService().messagesMarkAsRead(peerId = UserId(peerId)), object : VKApiCallback<com.vk.sdk.api.base.dto.BaseOkResponseDto> {
-            override fun success(result: com.vk.sdk.api.base.dto.BaseOkResponseDto) {
-                continuation.resume(Result.success(result))
+    suspend fun markAsRead(peerId: Long): Result<Int> {
+        return try {
+            val response = vkService.markAsRead(peerId = peerId)
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.response != null) {
+                    Result.success(body.response)
+                } else {
+                    Result.failure(Exception("VK Error: ${body?.error?.error_msg}"))
+                }
+            } else {
+                Result.failure(Exception("Network error: ${response.code()}"))
             }
-
-            override fun fail(error: Exception) {
-                continuation.resume(Result.failure(error))
-            }
-        })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
