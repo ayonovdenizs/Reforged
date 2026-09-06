@@ -7,23 +7,6 @@ import retrofit2.http.Query
 
 interface VKService {
 
-    @GET("method/audio.get")
-    suspend fun getAudio(
-        @Query("owner_id") ownerId: Long,
-        @Query("offset") offset: Int = 0,
-        @Query("count") count: Int = 100
-    ): Response<AudioResponseWrapper>
-
-    @GET("method/audio.getCatalog")
-    suspend fun getCatalog(
-        @Query("extended") extended: Int = 1
-    ): Response<CatalogResponseWrapper>
-
-    @GET("method/audio.getRecommendations")
-    suspend fun getRecommendations(
-        @Query("count") count: Int = 10
-    ): Response<AudioResponseWrapper>
-
     @GET("method/newsfeed.get")
     suspend fun getNewsFeed(
         @Query("start_from") startFrom: String? = null,

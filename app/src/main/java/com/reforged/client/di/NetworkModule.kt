@@ -4,6 +4,7 @@ import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.reforged.client.data.local.TokenStorage
+import com.reforged.client.data.remote.AudioApi
 import com.reforged.client.data.remote.AuthApi
 import com.reforged.client.data.remote.BadgeApi
 import com.reforged.client.data.remote.api.VKService
@@ -74,6 +75,17 @@ object NetworkModule {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
             .create(VKService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAudioApi(client: OkHttpClient, gson: Gson): AudioApi {
+        return Retrofit.Builder()
+            .baseUrl("https://api.vk.ru/")
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+            .create(AudioApi::class.java)
     }
 
     @Provides

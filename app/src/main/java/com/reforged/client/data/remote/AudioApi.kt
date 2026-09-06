@@ -8,25 +8,60 @@ interface AudioApi {
     @GET("method/audio.get")
     suspend fun getAudio(
         @Query("owner_id") ownerId: Long,
-        @Query("access_token") token: String,
-        @Query("v") version: String = "5.199",
         @Query("offset") offset: Int = 0,
         @Query("count") count: Int = 100
     ): Response<AudioResponseWrapper>
 
     @GET("method/audio.getCatalog")
     suspend fun getCatalog(
-        @Query("access_token") token: String,
-        @Query("v") version: String = "5.199",
-        @Query("extended") extended: Int = 1
+        @Query("extended") extended: Int = 1,
+        @Query("section_id") sectionId: String? = null,
+        @Query("start_from") startFrom: String? = null
     ): Response<CatalogResponseWrapper>
 
     @GET("method/audio.getRecommendations")
     suspend fun getRecommendations(
-        @Query("access_token") token: String,
-        @Query("v") version: String = "5.199",
-        @Query("count") count: Int = 10
+        @Query("count") count: Int = 10,
+        @Query("offset") offset: Int = 0
     ): Response<AudioResponseWrapper>
+
+    @GET("method/audio.search")
+    suspend fun search(
+        @Query("q") query: String,
+        @Query("offset") offset: Int = 0,
+        @Query("count") count: Int = 50
+    ): Response<AudioResponseWrapper>
+
+    @GET("method/audio.getPlaylists")
+    suspend fun getPlaylists(
+        @Query("owner_id") ownerId: Long,
+        @Query("offset") offset: Int = 0,
+        @Query("count") count: Int = 50
+    ): Response<PlaylistsResponseWrapper>
+
+    @GET("method/audio.getPlaylistById")
+    suspend fun getPlaylistById(
+        @Query("owner_id") ownerId: Long,
+        @Query("playlist_id") playlistId: Long,
+        @Query("access_key") accessKey: String? = null
+    ): Response<PlaylistResponseWrapper>
+
+    @GET("method/audio.getById")
+    suspend fun getById(
+        @Query("audios") audios: String // ownerId_audioId
+    ): Response<AudioListResponseWrapper>
+
+    @GET("method/audio.add")
+    suspend fun add(
+        @Query("audio_id") audioId: Long,
+        @Query("owner_id") ownerId: Long
+    ): Response<BaseOkResponseWrapper>
+
+    @GET("method/audio.delete")
+    suspend fun delete(
+        @Query("audio_id") audioId: Long,
+        @Query("owner_id") ownerId: Long
+    ): Response<BaseOkResponseWrapper>
 }
 
 data class AudioResponseWrapper(
@@ -37,6 +72,26 @@ data class AudioResponseWrapper(
 data class AudioResponse(
     val count: Int,
     val items: List<AudioTrackDto>
+)
+
+data class AudioListResponseWrapper(
+    val response: List<AudioTrackDto>? = null,
+    val error: VkError? = null
+)
+
+data class PlaylistsResponseWrapper(
+    val response: PlaylistsResponse? = null,
+    val error: VkError? = null
+)
+
+data class PlaylistsResponse(
+    val count: Int,
+    val items: List<PlaylistDto>
+)
+
+data class PlaylistResponseWrapper(
+    val response: PlaylistDto? = null,
+    val error: VkError? = null
 )
 
 data class CatalogResponseWrapper(
