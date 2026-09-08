@@ -9,6 +9,7 @@ import com.reforged.client.data.remote.AuthApi
 import com.reforged.client.data.remote.BadgeApi
 import com.reforged.client.data.remote.api.VKService
 import com.reforged.client.data.remote.interceptors.VKApiInterceptor
+import com.reforged.client.data.remote.interceptors.VKMusicInterceptor
 import com.reforged.client.data.remote.NewsfeedInterceptor
 import com.reforged.client.data.repository.SettingsRepository
 import dagger.Module
@@ -57,6 +58,21 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @javax.inject.Named("musicClient")
+    fun provideMusicOkHttpClient(
+        tokenStorage: TokenStorage
+    ): OkHttpClient {
+        val logging = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+        return OkHttpClient.Builder()
+            .addInterceptor(logging)
+            .addInterceptor(VKMusicInterceptor(tokenStorage))
+            .build()
+    }
+
+    @Provides
+    @Singleton
     fun provideAuthApi(client: OkHttpClient, gson: Gson): AuthApi {
         return Retrofit.Builder()
             .baseUrl("https://oauth.vk.ru/")
@@ -79,7 +95,10 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAudioApi(client: OkHttpClient, gson: Gson): AudioApi {
+    fun provideAudioApi(
+        @javax.inject.Named("musicClient") client: OkHttpClient,
+        gson: Gson
+    ): AudioApi {
         return Retrofit.Builder()
             .baseUrl("https://api.vk.ru/")
             .client(client)

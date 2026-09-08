@@ -33,9 +33,30 @@ object AudioDecoder {
     }
 
     private fun decodeBase(str: String): String {
-        // Simple base64-like decode based on MAP
-        // VK uses its own base64-like encoding for the content part
-        return str // Simplified for now, usually it's just content
+        val list = str.toCharArray()
+        var result = ""
+        var i = 0
+        while (i < list.size) {
+            val char1 = MAP.indexOf(list.getOrNull(i++) ?: ' ')
+            val char2 = MAP.indexOf(list.getOrNull(i++) ?: ' ')
+            val char3 = MAP.indexOf(list.getOrNull(i++) ?: ' ')
+            val char4 = MAP.indexOf(list.getOrNull(i++) ?: ' ')
+            
+            if (char1 == -1 || char2 == -1) break
+            
+            val b1 = (char1 shl 2) or (char2 shr 4)
+            result += b1.toChar()
+            
+            if (char3 != -1 && char3 != 64) {
+                val b2 = ((char2 and 15) shl 4) or (char3 shr 2)
+                result += b2.toChar()
+                if (char4 != -1 && char4 != 64) {
+                    val b3 = ((char3 and 3) shl 6) or char4
+                    result += b3.toChar()
+                }
+            }
+        }
+        return result
     }
 
     private fun r(str: String, arg: Int): String {

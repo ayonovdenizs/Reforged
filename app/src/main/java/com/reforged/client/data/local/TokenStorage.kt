@@ -15,6 +15,10 @@ class TokenStorage @Inject constructor(
         get() = prefs.getString("access_token", null)
         set(value) = prefs.edit().putString("access_token", value).apply()
 
+    var musicAccessToken: String?
+        get() = prefs.getString("music_access_token", null)
+        set(value) = prefs.edit().putString("music_access_token", value).apply()
+
     var userId: Long
         get() = prefs.getLong("user_id", 0L)
         set(value) = prefs.edit().putLong("user_id", value).apply()

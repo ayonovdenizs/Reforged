@@ -67,6 +67,12 @@ dependencies {
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
 
+    // Ktor
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+
     // Media3 (ExoPlayer)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)

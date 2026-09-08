@@ -60,6 +60,15 @@ class AuthViewModel @Inject constructor(
                         tokenStorage.accessToken = response.access_token
                         tokenStorage.userId = uId
                         
+                        // Try to get music token in background
+                        launch {
+                            repository.loginMusic(username, password, sid, captchaKey, code).onSuccess { musicResponse ->
+                                musicResponse.access_token?.let {
+                                    tokenStorage.musicAccessToken = it
+                                }
+                            }
+                        }
+
                         com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setUserId(uId.toString())
                         _authState.value = AuthState.Success(response.access_token)
                         _isAuthorized.value = true
@@ -89,6 +98,7 @@ class AuthViewModel @Inject constructor(
 
     fun logout() {
         tokenStorage.accessToken = null
+        tokenStorage.musicAccessToken = null
         tokenStorage.userId = 0L
         _isAuthorized.value = false
         _authState.value = AuthState.Idle

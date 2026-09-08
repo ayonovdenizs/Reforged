@@ -25,15 +25,38 @@ class AuthRepository @Inject constructor(
         captchaKey: String? = null,
         code: String? = null
     ): Result<AuthResponse> {
+        return performLogin(appId, appSecret, username, password, captchaSid, captchaKey, code)
+    }
+
+    suspend fun loginMusic(
+        username: String,
+        password: String,
+        captchaSid: String? = null,
+        captchaKey: String? = null,
+        code: String? = null
+    ): Result<AuthResponse> {
+        // VK Music (BOOM) Credentials
+        return performLogin("6121396", "7bS6v25tZ7pcZ956snS8", username, password, captchaSid, captchaKey, code)
+    }
+
+    private suspend fun performLogin(
+        clientId: String,
+        clientSecret: String,
+        username: String,
+        password: String,
+        captchaSid: String? = null,
+        captchaKey: String? = null,
+        code: String? = null
+    ): Result<AuthResponse> {
         val params = mutableMapOf(
             "grant_type" to "password",
-            "client_id" to appId,
-            "client_secret" to appSecret,
+            "client_id" to clientId,
+            "client_secret" to clientSecret,
             "username" to username,
             "password" to password,
             "2fa_supported" to "1",
             "force_sms" to "1",
-            "v" to "5.199",
+            "v" to "5.119", // Using a version often used with BOOM
             "scope" to "all,offline"
         )
 
