@@ -1,22 +1,18 @@
 package com.reforged.client.data.repository
 
-import com.reforged.client.data.remote.api.VKService
+import com.reforged.client.data.remote.api.VkHttpClient
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class NotificationRepository @Inject constructor(
-    private val vkService: VKService
+    private val vkHttpClient: VkHttpClient
 ) {
 
     suspend fun getUnreadCount(): Int {
         return try {
-            val response = vkService.getConversations(count = 1)
-            if (response.isSuccessful) {
-                response.body()?.response?.unreadCount ?: 0
-            } else {
-                0
-            }
+            val wrapper = vkHttpClient.getConversations(count = 1)
+            wrapper.response?.unreadCount ?: 0
         } catch (_: Exception) {
             0
         }

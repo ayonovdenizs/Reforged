@@ -2,7 +2,7 @@ package com.reforged.client.data.repository
 
 import com.reforged.client.data.local.MessageDao
 import com.reforged.client.data.remote.*
-import com.reforged.client.data.remote.api.VKService
+import com.reforged.client.data.remote.api.VkHttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -17,7 +17,7 @@ import kotlin.random.Random
 
 @Singleton
 class MessagesRepository @Inject constructor(
-    private val vkService: VKService,
+    private val vkHttpClient: VkHttpClient,
     private val messageDao: MessageDao,
     private val okHttpClient: OkHttpClient
 ) {
@@ -26,16 +26,13 @@ class MessagesRepository @Inject constructor(
 
     suspend fun getConversations(offset: Int = 0, count: Int = 40): Result<ConversationsResponse> {
         return try {
-            val response = vkService.getConversations(offset = offset, count = count)
-            if (response.isSuccessful) {
-                val body = response.body()
-                if (body?.response != null) {
-                    Result.success(body.response)
-                } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
-                }
+            val wrapper = vkHttpClient.getConversations(offset = offset, count = count)
+            if (wrapper.response != null) {
+                Result.success(wrapper.response)
+            } else if (wrapper.error != null) {
+                Result.failure(Exception("VK Error: ${wrapper.error.errorMsg}"))
             } else {
-                Result.failure(Exception("Network error: ${response.code()}"))
+                Result.failure(Exception("Conversations not found"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -44,16 +41,13 @@ class MessagesRepository @Inject constructor(
 
     suspend fun getHistory(peerId: Long, offset: Int = 0, count: Int = 30): Result<HistoryResponse> {
         return try {
-            val response = vkService.getHistory(peerId = peerId, offset = offset, count = count)
-            if (response.isSuccessful) {
-                val body = response.body()
-                if (body?.response != null) {
-                    Result.success(body.response)
-                } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
-                }
+            val wrapper = vkHttpClient.getHistory(peerId = peerId, offset = offset, count = count)
+            if (wrapper.response != null) {
+                Result.success(wrapper.response)
+            } else if (wrapper.error != null) {
+                Result.failure(Exception("VK Error: ${wrapper.error.errorMsg}"))
             } else {
-                Result.failure(Exception("Network error: ${response.code()}"))
+                Result.failure(Exception("History not found"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -62,16 +56,13 @@ class MessagesRepository @Inject constructor(
 
     suspend fun getConversation(peerId: Long): Result<List<ConversationDto>> = withContext(Dispatchers.IO) {
         try {
-            val response = vkService.getConversationsById(peerIds = peerId.toString())
-            if (response.isSuccessful) {
-                val body = response.body()
-                if (body?.response != null) {
-                    Result.success(body.response)
-                } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
-                }
+            val wrapper = vkHttpClient.getConversationsById(peerIds = peerId.toString())
+            if (wrapper.response != null) {
+                Result.success(wrapper.response)
+            } else if (wrapper.error != null) {
+                Result.failure(Exception("VK Error: ${wrapper.error.errorMsg}"))
             } else {
-                Result.failure(Exception("Network error: ${response.code()}"))
+                Result.failure(Exception("Conversation not found"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -80,22 +71,19 @@ class MessagesRepository @Inject constructor(
 
     suspend fun sendMessage(peerId: Long, text: String, stickerId: Int? = null, attachments: List<String>? = null): Result<Int> {
         return try {
-            val response = vkService.sendMessage(
+            val wrapper = vkHttpClient.sendMessage(
                 peerId = peerId,
                 randomId = Random.nextInt(),
                 message = text.ifEmpty { null },
                 stickerId = stickerId,
                 attachment = attachments?.joinToString(",")
             )
-            if (response.isSuccessful) {
-                val body = response.body()
-                if (body?.response != null) {
-                    Result.success(body.response)
-                } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
-                }
+            if (wrapper.response != null) {
+                Result.success(wrapper.response)
+            } else if (wrapper.error != null) {
+                Result.failure(Exception("VK Error: ${wrapper.error.errorMsg}"))
             } else {
-                Result.failure(Exception("Network error: ${response.code()}"))
+                Result.failure(Exception("Send failed"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -104,16 +92,13 @@ class MessagesRepository @Inject constructor(
 
     suspend fun getLongPollServer(): Result<LongPollParamsDto> {
         return try {
-            val response = vkService.getLongPollServer()
-            if (response.isSuccessful) {
-                val body = response.body()
-                if (body?.response != null) {
-                    Result.success(body.response)
-                } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
-                }
+            val wrapper = vkHttpClient.getLongPollServer()
+            if (wrapper.response != null) {
+                Result.success(wrapper.response)
+            } else if (wrapper.error != null) {
+                Result.failure(Exception("VK Error: ${wrapper.error.errorMsg}"))
             } else {
-                Result.failure(Exception("Network error: ${response.code()}"))
+                Result.failure(Exception("LongPoll params not found"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -122,16 +107,13 @@ class MessagesRepository @Inject constructor(
 
     suspend fun getDocsUploadServer(peerId: Long): Result<String> {
         return try {
-            val response = vkService.getDocsUploadServer(peerId = peerId)
-            if (response.isSuccessful) {
-                val body = response.body()
-                if (body?.response != null) {
-                    Result.success(body.response.uploadUrl)
-                } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
-                }
+            val wrapper = vkHttpClient.getDocsUploadServer(peerId = peerId)
+            if (wrapper.response != null) {
+                Result.success(wrapper.response.uploadUrl)
+            } else if (wrapper.error != null) {
+                Result.failure(Exception("VK Error: ${wrapper.error.errorMsg}"))
             } else {
-                Result.failure(Exception("Network error: ${response.code()}"))
+                Result.failure(Exception("Upload server not found"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -164,17 +146,14 @@ class MessagesRepository @Inject constructor(
 
     private suspend fun saveDocument(file: String): Result<String> {
         return try {
-            val response = vkService.saveDoc(file = file)
-            if (response.isSuccessful) {
-                val body = response.body()
-                if (body?.response != null) {
-                    val doc = body.response.doc
-                    Result.success("doc${doc?.ownerId}_${doc?.id}")
-                } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
-                }
+            val wrapper = vkHttpClient.saveDoc(file = file)
+            if (wrapper.response != null) {
+                val doc = wrapper.response.doc
+                Result.success("doc${doc?.ownerId}_${doc?.id}")
+            } else if (wrapper.error != null) {
+                Result.failure(Exception("VK Error: ${wrapper.error.errorMsg}"))
             } else {
-                Result.failure(Exception("Network error: ${response.code()}"))
+                Result.failure(Exception("Save failed"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -183,16 +162,13 @@ class MessagesRepository @Inject constructor(
 
     suspend fun markAsRead(peerId: Long): Result<Int> {
         return try {
-            val response = vkService.markAsRead(peerId = peerId)
-            if (response.isSuccessful) {
-                val body = response.body()
-                if (body?.response != null) {
-                    Result.success(body.response)
-                } else {
-                    Result.failure(Exception("VK Error: ${body?.error?.errorMsg}"))
-                }
+            val wrapper = vkHttpClient.markAsRead(peerId = peerId)
+            if (wrapper.response != null) {
+                Result.success(wrapper.response)
+            } else if (wrapper.error != null) {
+                Result.failure(Exception("VK Error: ${wrapper.error.errorMsg}"))
             } else {
-                Result.failure(Exception("Network error: ${response.code()}"))
+                Result.failure(Exception("Mark as read failed"))
             }
         } catch (e: Exception) {
             Result.failure(e)

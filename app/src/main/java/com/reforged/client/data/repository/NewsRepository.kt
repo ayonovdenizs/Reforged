@@ -1,27 +1,23 @@
 package com.reforged.client.data.repository
 
 import com.reforged.client.data.remote.NewsfeedResponse
-import com.reforged.client.data.remote.api.VKService
+import com.reforged.client.data.remote.api.VkHttpClient
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class NewsRepository @Inject constructor(
-    private val vkService: VKService
+    private val vkHttpClient: VkHttpClient
 ) {
-
     suspend fun getNewsFeed(startFrom: String? = null): Result<NewsfeedResponse> {
         return try {
-            val response = vkService.getNewsFeed(startFrom)
-            if (response.isSuccessful) {
-                val body = response.body()
-                if (body?.response != null) {
-                    Result.success(body.response)
-                } else {
-                    Result.failure(Exception("Empty response"))
-                }
+            val wrapper = vkHttpClient.getNewsFeed(startFrom)
+            if (wrapper.response != null) {
+                Result.success(wrapper.response)
+            } else if (wrapper.error != null) {
+                Result.failure(Exception("VK Error ${wrapper.error.errorCode}: ${wrapper.error.errorMsg}"))
             } else {
-                Result.failure(Exception("Network error: ${response.code()}"))
+                Result.failure(Exception("Empty response"))
             }
         } catch (e: Exception) {
             Result.failure(e)
