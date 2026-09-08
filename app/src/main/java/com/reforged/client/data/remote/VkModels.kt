@@ -8,15 +8,15 @@ data class UserDto(
     val id: Long,
     @SerialName("first_name") val firstName: String,
     @SerialName("last_name") val lastName: String,
-    @SerialName("photo_200") val photo200: String?,
-    @SerialName("screen_name") val screenName: String?,
-    val status: String?,
-    val bdate: String?,
-    val city: CityDto?,
-    val country: CountryDto?,
-    @SerialName("followers_count") val followersCount: Int?,
-    val counters: UserCountersDto?,
-    val about: String?
+    @SerialName("photo_200") val photo200: String? = null,
+    @SerialName("screen_name") val screenName: String? = null,
+    val status: String? = null,
+    val bdate: String? = null,
+    val city: CityDto? = null,
+    val country: CountryDto? = null,
+    @SerialName("followers_count") val followersCount: Int? = null,
+    val counters: UserCountersDto? = null,
+    val about: String? = null
 )
 
 @Serializable
@@ -379,4 +379,148 @@ data class VideoResponse(
 data class BaseOkResponseWrapper(
     val response: Int? = null,
     val error: VkError? = null
+)
+
+// --- Auth Response ---
+@Serializable
+data class AuthResponse(
+    @SerialName("access_token") val access_token: String? = null,
+    @SerialName("user_id") val user_id: Long? = null,
+    val secret: String? = null,
+    @SerialName("expires_in") val expires_in: Int? = null,
+    val error: String? = null,
+    @SerialName("error_description") val error_description: String? = null,
+    @SerialName("captcha_sid") val captcha_sid: String? = null,
+    @SerialName("captcha_img") val captcha_img: String? = null,
+    @SerialName("validation_type") val validation_type: String? = null,
+    @SerialName("validation_sid") val validation_sid: String? = null,
+    @SerialName("phone_mask") val phone_mask: String? = null
+)
+
+// --- Music (Audio) Models ---
+@Serializable
+data class AudioResponseWrapper(
+    val response: AudioResponse? = null,
+    val error: VkError? = null
+)
+
+@Serializable
+data class AudioResponse(
+    val count: Int,
+    val items: List<AudioTrackDto>
+)
+
+@Serializable
+data class AudioListResponseWrapper(
+    val response: List<AudioTrackDto>? = null,
+    val error: VkError? = null
+)
+
+@Serializable
+data class PlaylistsResponseWrapper(
+    val response: PlaylistsResponse? = null,
+    val error: VkError? = null
+)
+
+@Serializable
+data class PlaylistsResponse(
+    val count: Int,
+    val items: List<PlaylistDto>
+)
+
+@Serializable
+data class PlaylistResponseWrapper(
+    val response: PlaylistDto? = null,
+    val error: VkError? = null
+)
+
+@Serializable
+data class CatalogResponseWrapper(
+    val response: CatalogResponse? = null,
+    val error: VkError? = null
+)
+
+@Serializable
+data class CatalogResponse(
+    val items: List<CatalogSectionDto>
+)
+
+@Serializable
+data class CatalogSectionDto(
+    val id: String? = null,
+    val title: String? = null,
+    val type: String? = null, // "list", "blocks", etc.
+    val items: List<CatalogItemDto>? = null,
+    val playlists: List<PlaylistDto>? = null,
+    val audios: List<AudioTrackDto>? = null
+)
+
+@Serializable
+data class CatalogItemDto(
+    val id: String? = null,
+    val title: String? = null,
+    val subtitle: String? = null,
+    val type: String? = null, // "playlist", "audio", etc.
+    val playlist: PlaylistDto? = null,
+    val audio: AudioTrackDto? = null
+)
+
+@Serializable
+data class PlaylistDto(
+    val id: Long,
+    @SerialName("owner_id") val ownerId: Long,
+    val title: String,
+    val description: String? = null,
+    val photo: AudioPhotoDto? = null,
+    val count: Int
+)
+
+@Serializable
+data class AudioPhotoDto(
+    @SerialName("photo_300") val photo300: String? = null,
+    @SerialName("photo_600") val photo600: String? = null,
+    @SerialName("photo_1200") val photo1200: String? = null
+)
+
+@Serializable
+data class AudioTrackDto(
+    val id: Long,
+    @SerialName("owner_id") val ownerId: Long,
+    val artist: String,
+    val title: String,
+    val duration: Int,
+    val url: String? = null,
+    @SerialName("track_code") val trackCode: String? = null,
+    val ads: String? = null,
+    val album: AlbumDto? = null
+)
+
+@Serializable
+data class AlbumDto(
+    val id: Long,
+    val thumb: AudioPhotoDto? = null,
+    val title: String? = null
+)
+
+// --- Badge Response ---
+@Serializable
+data class BadgeResponse(
+    val status: String,
+    val data: BadgeData? = null,
+    val message: String? = null
+)
+
+@Serializable
+data class BadgeData(
+    @SerialName("vk_id") val vk_id: Long,
+    val badges: List<BadgeDto>
+)
+
+@Serializable
+data class BadgeDto(
+    val type: Int,
+    val slug: String,
+    val label: String,
+    val icon: String,
+    val priority: Int
 )
