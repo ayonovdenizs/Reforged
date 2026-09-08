@@ -39,7 +39,7 @@ class VkHttpClient @Inject constructor(
      * Executes a safe request to VK API with rate limiting.
      */
     private suspend fun safeRequest(
-        baseUrl: String = "https://vk.ru/",
+        baseUrl: String = "https://api.vk.com/",
         path: String,
         isMusic: Boolean = false,
         block: HttpRequestBuilder.() -> Unit = {}
@@ -55,7 +55,7 @@ class VkHttpClient @Inject constructor(
         }
 
         return client.get(baseUrl + path) {
-            if (baseUrl.contains("vk.ru")) {
+            if (baseUrl.contains("vk.com") || baseUrl.contains("vk.ru")) {
                 parameter("v", if (isMusic) "5.119" else "5.199")
                 val token = if (isMusic) tokenStorage.musicAccessToken ?: tokenStorage.accessToken else tokenStorage.accessToken
                 parameter("access_token", token)
