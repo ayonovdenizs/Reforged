@@ -201,7 +201,7 @@ data class MessageDto(
     @SerialName("peer_id") val peerId: Long,
     @SerialName("from_id") val fromId: Long,
     val text: String,
-    @SerialName("random_id") val randomId: Int,
+    @SerialName("random_id") val randomId: Int = 0,
     val attachments: List<AttachmentDto>? = null,
     @SerialName("fwd_messages") val fwdMessages: List<MessageDto>? = null,
     @SerialName("reply_message") val replyMessage: MessageDto? = null,
@@ -484,11 +484,11 @@ data class AudioPhotoDto(
 
 @Serializable
 data class AudioTrackDto(
-    val id: Long,
-    @SerialName("owner_id") val ownerId: Long,
-    val artist: String,
-    val title: String,
-    val duration: Int,
+    val id: Long = 0,
+    @SerialName("owner_id") val ownerId: Long = 0,
+    val artist: String = "",
+    val title: String = "",
+    val duration: Int = 0,
     val url: String? = null,
     @SerialName("track_code") val trackCode: String? = null,
     val ads: String? = null,
