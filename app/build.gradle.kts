@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.kotlinx.serialization.json)
 
     // Media3 (ExoPlayer)
     implementation(libs.media3.exoplayer)

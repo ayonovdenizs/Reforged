@@ -28,7 +28,7 @@ class VkHttpClient @Inject constructor(
             json(json)
         }
         defaultRequest {
-            url("https://vk.ru/method/")
+            url("https://vk.ru/")
         }
     }
 
@@ -54,7 +54,7 @@ class VkHttpClient @Inject constructor(
             lastRequestTime = System.currentTimeMillis()
         }
 
-        return client.get(method) {
+        return client.get("method/$method") {
             parameter("v", "5.199")
             parameter("access_token", tokenStorage.accessToken)
             block()
