@@ -64,8 +64,6 @@ dependencies {
     implementation(libs.coil.compose)
 
     // Networking
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
 
     // Ktor

@@ -25,10 +25,10 @@ class AuthWebViewActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         val appId = resources.getInteger(R.integer.com_vk_sdk_AppId)
-        val authUrl = "https://oauth.vk.com/authorize?" +
+        val authUrl = "https://oauth.vk.ru/authorize?" +
                 "client_id=$appId&" +
                 "display=mobile&" +
-                "redirect_uri=https://oauth.vk.com/blank.html&" +
+                "redirect_uri=https://oauth.vk.ru/blank.html&" +
                 "scope=notify,friends,photos,audio,video,stories,pages,status,notes,messages,wall,ads,offline,docs,groups,notifications,stats,email,market&" +
                 "response_type=token&" +
                 "v=5.199"

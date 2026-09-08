@@ -50,8 +50,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBackClick: () -> Unit) {
             Spacer(modifier = Modifier.height(32.dp))
             Text(text = "О приложении", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(16.dp))
-            Text(text = "VK Reforged v1.0", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "DEV BUILD", style = MaterialTheme.typography.bodySmall)
+            Text(text = "VK Reforged", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "DEV PREVIEW BUILD", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
