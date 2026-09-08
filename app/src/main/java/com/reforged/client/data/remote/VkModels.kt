@@ -477,9 +477,9 @@ data class PlaylistDto(
 
 @Serializable
 data class AudioPhotoDto(
-    @SerialName("photo_300") val photo300: String? = null,
-    @SerialName("photo_600") val photo600: String? = null,
-    @SerialName("photo_1200") val photo1200: String? = null
+    val photo_300: String? = null,
+    val photo_600: String? = null,
+    val photo_1200: String? = null
 )
 
 @Serializable
