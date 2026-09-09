@@ -6,7 +6,7 @@ VK Reforged — это современный, многофункциональ�
 
 - **UI:** Jetpack Compose, Material 3 (Material You)
 - **Архитектура:** MVVM
-- **Сеть:** Retrofit 2, OkHttp 4
+- **Сеть:** Retrofit 2, OkHttp 4, ktor
 - **Инъекция зависимостей:** Hilt
 - **База данных:** Room (кэширование сообщений)
 - **Медиа:** Media3 (ExoPlayer, MediaSession)
