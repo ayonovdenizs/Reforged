@@ -3,6 +3,7 @@ package com.reforged.client.ui.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.reforged.client.data.local.TokenStorage
+import com.reforged.client.data.remote.LoginResponse
 import com.reforged.client.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,13 +80,15 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    private fun handleLoginResponse(response: com.reforged.client.data.remote.LoginResponse) {
+    private fun handleLoginResponse(response: LoginResponse) {
         when {
             response.access_token != null -> {
                 val token = response.access_token
                 val userId = response.user_id ?: 0L
                 tokenStorage.accessToken = token
                 tokenStorage.userId = userId
+                
+                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setUserId(userId.toString())
                 
                 // Exchange token warming
                 viewModelScope.launch {
