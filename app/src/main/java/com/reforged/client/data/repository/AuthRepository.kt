@@ -17,6 +17,16 @@ class AuthRepository @Inject constructor(
     // Official Android App Secret
     private val appSecret = "hHbZxrka2uZ6jB1inYsH"
 
+    private val deviceId by lazy {
+        val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+        var id = prefs.getString("device_id", null)
+        if (id == null) {
+            id = java.util.UUID.randomUUID().toString()
+            prefs.edit().putString("device_id", id).apply()
+        }
+        id!!
+    }
+
     suspend fun login(
         username: String,
         password: String,
@@ -56,7 +66,8 @@ class AuthRepository @Inject constructor(
             "2fa_supported" to "1",
             "force_sms" to "1",
             "v" to "5.119", // Using a version often used with BOOM
-            "scope" to "all,offline"
+            "scope" to "all,offline",
+            "device_id" to deviceId
         )
 
         captchaSid?.let { 
