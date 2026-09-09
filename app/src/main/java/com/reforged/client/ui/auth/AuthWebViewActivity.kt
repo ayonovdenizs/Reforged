@@ -25,13 +25,20 @@ class AuthWebViewActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         val appId = resources.getInteger(R.integer.com_vk_sdk_AppId)
-        val authUrl = "https://oauth.vk.ru/authorize?" +
+        // Scopes for full access
+        val scope = "friends,photos,audio,video,status,notes,messages,wall,ads,offline,docs,groups,notifications,stats,email,market"
+        
+        val intentUrl = intent.getStringExtra("url")
+        val defaultAuthUrl = "https://oauth.vk.ru/authorize?" +
                 "client_id=$appId&" +
                 "display=mobile&" +
                 "redirect_uri=https://oauth.vk.ru/blank.html&" +
-                "scope=notify,friends,photos,audio,video,stories,pages,status,notes,messages,wall,ads,offline,docs,groups,notifications,stats,email,market&" +
+                "scope=$scope&" +
                 "response_type=token&" +
-                "v=5.199"
+                "v=5.199&" +
+                "state=reforged"
+        
+        val authUrl = intentUrl ?: defaultAuthUrl
 
         setContent {
             var isLoading by remember { mutableStateOf(true) }
@@ -40,10 +47,9 @@ class AuthWebViewActivity : ComponentActivity() {
                 AuthWebView(
                     url = authUrl,
                     onLoadingChanged = { isLoading = it },
-                    onTokenCaptured = { token, userId ->
+                    onCaptured = { data ->
                         val result = Intent().apply {
-                            putExtra("access_token", token)
-                            putExtra("user_id", userId)
+                            data.forEach { (k, v) -> putExtra(k, v) }
                         }
                         setResult(Activity.RESULT_OK, result)
                         finish()
@@ -63,42 +69,55 @@ class AuthWebViewActivity : ComponentActivity() {
 fun AuthWebView(
     url: String,
     onLoadingChanged: (Boolean) -> Unit,
-    onTokenCaptured: (String, Long) -> Unit
+    onCaptured: (Map<String, String>) -> Unit
 ) {
     AndroidView(
         factory = { context ->
             WebView(context).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
+                settings.databaseEnabled = true
                 
-                // Masking as mobile browser
-                settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
+                // Clear cookies to ensure fresh login
+                android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                
+                // User-Agent like VK Android App
+                settings.userAgentString = "VKAndroidApp/8.191-56796 (Android 13; SDK 33; arm64-v8a; Google Pixel 4; ru; 1080x1920)"
                 
                 webViewClient = object : WebViewClient() {
                     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                        android.util.Log.d("AuthWebView", "Started: $url")
                         onLoadingChanged(true)
+                        if (checkUrl(url)) return
                         super.onPageStarted(view, url, favicon)
                     }
 
                     override fun onPageFinished(view: WebView?, url: String?) {
+                        android.util.Log.d("AuthWebView", "Finished: $url")
                         onLoadingChanged(false)
+                        checkUrl(url)
                         super.onPageFinished(view, url)
-                        
-                        url?.let {
-                            if (it.contains("access_token=")) {
-                                val token = it.substringAfter("access_token=").substringBefore("&")
-                                val userId = it.substringAfter("user_id=").substringBefore("&").toLongOrNull() ?: 0L
-                                onTokenCaptured(token, userId)
-                            }
-                        }
                     }
 
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                        val newUrl = request?.url.toString()
-                        if (newUrl.contains("access_token=")) {
-                            val token = newUrl.substringAfter("access_token=").substringBefore("&")
-                            val userId = newUrl.substringAfter("user_id=").substringBefore("&").toLongOrNull() ?: 0L
-                            onTokenCaptured(token, userId)
+                        return checkUrl(request?.url.toString())
+                    }
+
+                    private fun checkUrl(url: String?): Boolean {
+                        url ?: return false
+                        if (url.contains("access_token=")) {
+                            // Extract params from fragment (#access_token=...)
+                            val fragment = url.substringAfter("#")
+                            val params = fragment.split("&").associate {
+                                it.substringBefore("=") to it.substringAfter("=")
+                            }
+                            android.util.Log.d("AuthWebView", "Captured access_token")
+                            onCaptured(params)
+                            return true
+                        }
+                        if (url.contains("success_token=")) {
+                            val token = url.substringAfter("success_token=").substringBefore("&")
+                            onCaptured(mapOf("success_token" to token))
                             return true
                         }
                         return false

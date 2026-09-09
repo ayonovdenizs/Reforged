@@ -18,7 +18,7 @@ sealed class AuthState {
     data class SelectValidationMethod(val sid: String, val methods: List<VerificationMethod>) : AuthState()
     data class CodeValidation(val sid: String, val method: String, val info: String? = null) : AuthState()
     data class NeedPassword(val sid: String, val canSkip: Boolean = false) : AuthState()
-    data class NeedCaptcha(val sid: String, val imgUrl: String) : AuthState()
+    data class NeedCaptcha(val sid: String, val imgUrl: String, val redirectUri: String? = null) : AuthState()
     data class Need2FA(val sid: String, val phoneMask: String) : AuthState()
     data class Error(val message: String) : AuthState()
 }
@@ -40,11 +40,26 @@ class AuthViewModel @Inject constructor(
     private var currentMethod = ""
     private var canSkipPassword = false
 
-    fun startLogin(username: String) {
+    fun startLogin(username: String, captchaToken: String? = null) {
         currentUsername = username
+        android.util.Log.d("AuthViewModel", "startLogin: $username, captchaToken: ${captchaToken != null}")
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            repository.validateAccount(username).onSuccess { validation ->
+            repository.validateAccount(username, captchaToken).onSuccess { validation ->
+                if (validation.error != null) {
+                    val error = validation.error
+                    if (error.error_code == 14) {
+                        _authState.value = AuthState.NeedCaptcha(
+                            sid = error.captcha_sid ?: "",
+                            imgUrl = error.captcha_img ?: "",
+                            redirectUri = error.redirect_uri
+                        )
+                        return@onSuccess
+                    }
+                    _authState.value = AuthState.Error(error.error_msg ?: "Validation failed")
+                    return@onSuccess
+                }
+                
                 currentSid = validation.sid ?: ""
                 val nextStep = validation.next_step
                 
@@ -123,10 +138,19 @@ class AuthViewModel @Inject constructor(
     }
 
     fun submitCaptcha(captchaKey: String) {
-        // In modern VK ID, captcha usually returns a redirect to a web view or a success_token.
-        // If it's a simple captcha_sid/key, we'd add it to params.
-        // For now, let's allow passing it to doAuth if we extend it.
-        // But Fenrir says it's a "VKIdCaptcha" (web-based or special success_token).
+        // Simple captcha
+        doAuth(grantType = if (currentMethod == "password") "password" else "without_password")
+    }
+
+    fun onCaptchaSuccess(successToken: String) {
+        android.util.Log.d("AuthViewModel", "onCaptchaSuccess, currentSid: $currentSid")
+        if (currentSid.isEmpty()) {
+            // Captcha was during validateAccount
+            startLogin(currentUsername, successToken)
+        } else {
+            // Captcha was during directLogin
+            doAuth(grantType = if (currentMethod == "password") "password" else "without_password", captchaSuccessToken = successToken)
+        }
     }
 
     fun submit2FA(code: String) {
@@ -181,7 +205,11 @@ class AuthViewModel @Inject constructor(
                 _authState.value = AuthState.Success(token)
             }
             response.error == "need_captcha" -> {
-                _authState.value = AuthState.NeedCaptcha(response.captcha_sid ?: "", response.captcha_img ?: "")
+                _authState.value = AuthState.NeedCaptcha(
+                    sid = response.captcha_sid ?: "",
+                    imgUrl = response.captcha_img ?: "",
+                    redirectUri = response.redirect_uri
+                )
             }
             response.error == "need_validation" -> {
                 // Check if it's 2FA or Web Validation

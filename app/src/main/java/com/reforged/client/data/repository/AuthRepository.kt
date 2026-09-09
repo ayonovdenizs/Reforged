@@ -37,6 +37,7 @@ class AuthRepository @Inject constructor(
         val cached = tokenStorage.anonymToken
         val expiry = tokenStorage.anonymTokenExpiry
         if (cached != null && expiry > System.currentTimeMillis()) {
+            android.util.Log.d("AuthRepository", "Using cached anonym token")
             return cached
         }
 
@@ -49,18 +50,22 @@ class AuthRepository @Inject constructor(
             "https" to "1"
         )
 
+        android.util.Log.d("AuthRepository", "Fetching new anonym token with appId: $appId")
         val token = vkHttpClient.getAnonymToken(params)
         if (token != null) {
             tokenStorage.anonymToken = token
             tokenStorage.anonymTokenExpiry = System.currentTimeMillis() + (24 * 60 * 60 * 1000) // 24h
+            android.util.Log.d("AuthRepository", "New anonym token saved")
+        } else {
+            android.util.Log.e("AuthRepository", "Failed to fetch anonym token from VK")
         }
         return token
     }
 
-    suspend fun validateAccount(username: String): Result<VKApiValidateAccount> {
+    suspend fun validateAccount(username: String, captchaSuccessToken: String? = null): Result<VKApiValidateAccount> {
         val anonymToken = getAnonymToken() ?: return Result.failure(Exception("Failed to get anonym token"))
         
-        val params = mapOf(
+        val params = mutableMapOf(
             "login" to username,
             "supported_ways" to "push,email,sms,callreset,password,reserve_code,codegen",
             "force_password" to "false",
@@ -70,16 +75,28 @@ class AuthRepository @Inject constructor(
             "v" to "5.199",
             "https" to "1"
         )
+        captchaSuccessToken?.let { params["success_token"] = it }
 
         return try {
             val responseString = vkHttpClient.validateAccount(params)
-            val jsonResponse = JSONObject(responseString).optJSONObject("response")
+            android.util.Log.d("AuthRepository", "Validate Account Response: $responseString")
+            val jsonObject = JSONObject(responseString)
+            
+            val jsonResponse = jsonObject.optJSONObject("response")
             if (jsonResponse != null) {
                 Result.success(json.decodeFromString<VKApiValidateAccount>(jsonResponse.toString()))
             } else {
-                Result.failure(Exception("Validation failed: $responseString"))
+                val error = jsonObject.optJSONObject("error")
+                if (error != null) {
+                    android.util.Log.d("AuthRepository", "Detected error object in response")
+                    Result.success(VKApiValidateAccount(error = json.decodeFromString<AuthError>(error.toString())))
+                } else {
+                    android.util.Log.e("AuthRepository", "No response or error object found")
+                    Result.failure(Exception("Validation failed: $responseString"))
+                }
             }
         } catch (e: Exception) {
+            android.util.Log.e("AuthRepository", "Parsing error in validateAccount", e)
             Result.failure(e)
         }
     }

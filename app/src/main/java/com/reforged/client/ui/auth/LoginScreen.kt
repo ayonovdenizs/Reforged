@@ -34,11 +34,18 @@ fun LoginScreen(viewModel: AuthViewModel) {
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        android.util.Log.d("LoginScreen", "Launcher result code: ${result.resultCode}")
         if (result.resultCode == Activity.RESULT_OK) {
             val token = result.data?.getStringExtra("access_token")
-            val userId = result.data?.getLongExtra("user_id", 0L) ?: 0L
+            val userId = result.data?.getStringExtra("user_id")?.toLongOrNull() ?: 0L
+            val successToken = result.data?.getStringExtra("success_token")
+            
+            android.util.Log.d("LoginScreen", "Launcher Data: token=${token != null}, successToken=${successToken != null}")
+            
             if (token != null) {
                 viewModel.onTokenCaptured(token, userId)
+            } else if (successToken != null) {
+                viewModel.onCaptchaSuccess(successToken)
             }
         }
     }
@@ -128,7 +135,12 @@ fun LoginScreen(viewModel: AuthViewModel) {
                             val intent = Intent(context, AuthWebViewActivity::class.java)
                             launcher.launch(intent)
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.textButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
                     ) {
                         Text("LOGIN VIA BROWSER", style = MaterialTheme.typography.labelLarge)
                     }
@@ -205,32 +217,49 @@ fun LoginScreen(viewModel: AuthViewModel) {
                 is AuthState.NeedCaptcha -> {
                     Text(text = "Captcha Required", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Surface(
-                        modifier = Modifier.clip(RoundedCornerShape(8.dp)),
-                        color = Color.White
-                    ) {
-                        AsyncImage(
-                            model = state.imgUrl,
-                            contentDescription = "Captcha",
-                            modifier = Modifier.size(130.dp, 50.dp)
+                    
+                    if (state.redirectUri != null) {
+                        Button(
+                            onClick = {
+                                val intent = Intent(context, AuthWebViewActivity::class.java).apply {
+                                    putExtra("url", state.redirectUri)
+                                }
+                                launcher.launch(intent)
+                            },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("SOLVE IN BROWSER")
+                        }
+                    } else {
+                        Surface(
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)),
+                            color = Color.White
+                        ) {
+                            AsyncImage(
+                                model = state.imgUrl,
+                                contentDescription = "Captcha",
+                                modifier = Modifier.size(130.dp, 50.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = captchaKey,
+                            onValueChange = { captchaKey = it },
+                            label = { Text("Captcha Text") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
                         )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = { viewModel.submitCaptcha(captchaKey) },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("SUBMIT")
+                        }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = captchaKey,
-                        onValueChange = { captchaKey = it },
-                        label = { Text("Captcha Text") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(
-                        onClick = { viewModel.submitCaptcha(captchaKey) },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("SUBMIT")
-                    }
+                    TextButton(onClick = { viewModel.logout() }) { Text("CANCEL") }
                 }
 
                 is AuthState.Need2FA -> {

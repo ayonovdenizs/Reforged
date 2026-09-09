@@ -1,12 +1,23 @@
 package com.reforged.client.data.remote
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class VKApiValidateAccount(
     val flow_name: String? = null,
     val sid: String? = null,
-    val next_step: NextStep? = null
+    val next_step: NextStep? = null,
+    val error: AuthError? = null
+)
+
+@Serializable
+data class AuthError(
+    @SerialName("error_code") val error_code: Int,
+    @SerialName("error_msg") val error_msg: String? = null,
+    val redirect_uri: String? = null,
+    val captcha_sid: String? = null,
+    val captcha_img: String? = null
 )
 
 @Serializable
@@ -75,5 +86,6 @@ data class LoginResponse(
     val phone_mask: String? = null,
     val validation_sid: String? = null,
     val captcha_sid: String? = null,
-    val captcha_img: String? = null
+    val captcha_img: String? = null,
+    val redirect_uri: String? = null
 )
