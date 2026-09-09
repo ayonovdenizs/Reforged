@@ -97,8 +97,43 @@ class VkHttpClient @Inject constructor(
     }
 
     suspend fun validateAccount(params: Map<String, String>): String = safeRequest(
-        baseUrl = "https://api.vk.com/",
-        path = "method/auth.validateAccount",
+        baseUrl = "https://api.vk.ru/oauth/",
+        path = "auth.validateAccount",
+        useAuthAgent = true
+    ) {
+        params.forEach { (key, value) -> parameter(key, value) }
+    }.bodyAsText()
+
+    suspend fun getVerificationMethods(params: Map<String, String>): String = safeRequest(
+        baseUrl = "https://api.vk.ru/oauth/",
+        path = "method/ecosystem.getVerificationMethods",
+        useAuthAgent = true
+    ) {
+        params.forEach { (key, value) -> parameter(key, value) }
+    }.bodyAsText()
+
+    suspend fun validatePhone(params: Map<String, String>): String = safeRequest(
+        baseUrl = "https://api.vk.ru/oauth/",
+        path = "auth.validatePhone",
+        useAuthAgent = true
+    ) {
+        params.forEach { (key, value) -> parameter(key, value) }
+    }.bodyAsText()
+
+    suspend fun sendEcosystemOtp(suffix: String, params: Map<String, String>): String {
+        val methodName = "ecosystem.sendOtp" + suffix.replaceFirstChar { it.uppercase() }
+        return safeRequest(
+            baseUrl = "https://api.vk.ru/oauth/",
+            path = "method/$methodName",
+            useAuthAgent = true
+        ) {
+            params.forEach { (key, value) -> parameter(key, value) }
+        }.bodyAsText()
+    }
+
+    suspend fun checkEcosystemOtp(params: Map<String, String>): String = safeRequest(
+        baseUrl = "https://api.vk.ru/oauth/",
+        path = "method/ecosystem.checkOtp",
         useAuthAgent = true
     ) {
         params.forEach { (key, value) -> parameter(key, value) }
@@ -115,6 +150,14 @@ class VkHttpClient @Inject constructor(
     suspend fun authByExchangeToken(params: Map<String, String>): String = safeRequest(
         baseUrl = "https://api.vk.ru/oauth/",
         path = "auth_by_exchange_token",
+        useAuthAgent = true
+    ) {
+        params.forEach { (key, value) -> parameter(key, value) }
+    }.bodyAsText()
+
+    suspend fun getExchangeToken(params: Map<String, String>): String = safeRequest(
+        baseUrl = "https://api.vk.com/",
+        path = "method/auth.getExchangeToken",
         useAuthAgent = true
     ) {
         params.forEach { (key, value) -> parameter(key, value) }

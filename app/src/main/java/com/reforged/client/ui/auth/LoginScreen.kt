@@ -138,6 +138,48 @@ fun LoginScreen(viewModel: AuthViewModel) {
                     CircularProgressIndicator()
                 }
 
+                is AuthState.SelectValidationMethod -> {
+                    Text(text = "Choose Verification Method", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    state.methods.forEach { method ->
+                        OutlinedButton(
+                            onClick = { viewModel.selectMethod(state.sid, method.name) },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(text = method.info ?: method.name.uppercase())
+                        }
+                    }
+                }
+
+                is AuthState.CodeValidation -> {
+                    Text(text = "Enter Code", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = state.info ?: "Check your ${state.method}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = code,
+                        onValueChange = { if (it.length <= 6) code = it },
+                        label = { Text("Verification Code") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = { viewModel.verifyCode(code) },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("CONTINUE")
+                    }
+                    TextButton(onClick = { viewModel.logout() }) { Text("CANCEL") }
+                }
+
                 is AuthState.NeedPassword -> {
                     Text(text = "Password Required", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(16.dp))
@@ -183,7 +225,7 @@ fun LoginScreen(viewModel: AuthViewModel) {
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
-                        onClick = { viewModel.login(username, password, captchaKey = captchaKey) },
+                        onClick = { viewModel.submitCaptcha(captchaKey) },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -212,7 +254,7 @@ fun LoginScreen(viewModel: AuthViewModel) {
                     )
                     Spacer(modifier = Modifier.height(32.dp))
                     Button(
-                        onClick = { viewModel.login(username, password, code = code) },
+                        onClick = { viewModel.submit2FA(code) },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -223,12 +265,6 @@ fun LoginScreen(viewModel: AuthViewModel) {
                 is AuthState.Success -> {
                     CircularProgressIndicator()
                     Text(text = "Success! Redirecting...", modifier = Modifier.padding(top = 16.dp))
-                }
-
-                else -> {
-                    // Placeholder for CodeValidation and SelectValidationMethod
-                    Text(text = "Please follow the instructions on your device.")
-                    Button(onClick = { viewModel.logout() }) { Text("CANCEL") }
                 }
             }
         }

@@ -3,8 +3,7 @@ package com.reforged.client.data.repository
 import android.content.Context
 import com.reforged.client.R
 import com.reforged.client.data.local.TokenStorage
-import com.reforged.client.data.remote.LoginResponse
-import com.reforged.client.data.remote.VKApiValidateAccount
+import com.reforged.client.data.remote.*
 import com.reforged.client.data.remote.api.VkHttpClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.Json
@@ -85,12 +84,93 @@ class AuthRepository @Inject constructor(
         }
     }
 
+    suspend fun getVerificationMethods(sid: String): Result<List<VerificationMethod>> {
+        val anonymToken = getAnonymToken() ?: return Result.failure(Exception("No anonym token"))
+        val params = mapOf(
+            "sid" to sid,
+            "access_token" to anonymToken,
+            "api_id" to appId,
+            "v" to "5.199",
+            "https" to "1",
+            "device_id" to deviceId
+        )
+
+        return try {
+            val responseString = vkHttpClient.getVerificationMethods(params)
+            val jsonResponse = JSONObject(responseString).optJSONObject("response")
+            if (jsonResponse != null) {
+                val data = json.decodeFromString<EcosystemVerificationMethods>(jsonResponse.toString())
+                Result.success(data.methods ?: emptyList())
+            } else {
+                Result.failure(Exception("Methods fetch failed: $responseString"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun sendEcosystemOtp(sid: String, method: String, username: String): Result<EcosystemSendOtp> {
+        val anonymToken = getAnonymToken() ?: return Result.failure(Exception("No anonym token"))
+        val params = mapOf(
+            "sid" to sid,
+            "access_token" to anonymToken,
+            "api_id" to appId,
+            "v" to "5.199",
+            "https" to "1",
+            "device_id" to deviceId
+        )
+
+        return try {
+            val responseString = if (method == "phone" || method == "sms") {
+                vkHttpClient.validatePhone(params + ("phone" to username))
+            } else {
+                vkHttpClient.sendEcosystemOtp(method, params)
+            }
+            
+            val jsonResponse = JSONObject(responseString).optJSONObject("response")
+            if (jsonResponse != null) {
+                Result.success(json.decodeFromString<EcosystemSendOtp>(jsonResponse.toString()))
+            } else {
+                Result.failure(Exception("OTP send failed: $responseString"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun checkEcosystemOtp(sid: String, method: String, code: String): Result<EcosystemCheckOtp> {
+        val anonymToken = getAnonymToken() ?: return Result.failure(Exception("No anonym token"))
+        val params = mapOf(
+            "sid" to sid,
+            "verification_method" to method,
+            "code" to code,
+            "access_token" to anonymToken,
+            "api_id" to appId,
+            "v" to "5.199",
+            "https" to "1",
+            "device_id" to deviceId
+        )
+
+        return try {
+            val responseString = vkHttpClient.checkEcosystemOtp(params)
+            val jsonResponse = JSONObject(responseString).optJSONObject("response")
+            if (jsonResponse != null) {
+                Result.success(json.decodeFromString<EcosystemCheckOtp>(jsonResponse.toString()))
+            } else {
+                Result.failure(Exception("OTP check failed: $responseString"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun directLogin(
         username: String,
         password: String? = null,
         sid: String? = null,
         code: String? = null,
-        grantType: String = "without_password"
+        grantType: String = "without_password",
+        captchaSuccessToken: String? = null
     ): Result<LoginResponse> {
         val anonymToken = getAnonymToken() ?: return Result.failure(Exception("Failed to get anonym token"))
 
@@ -111,10 +191,29 @@ class AuthRepository @Inject constructor(
         password?.let { params["password"] = it }
         sid?.let { params["sid"] = it }
         code?.let { params["code"] = it }
+        captchaSuccessToken?.let { params["success_token"] = it }
 
         return try {
             val responseString = vkHttpClient.directLogin(params)
             Result.success(json.decodeFromString<LoginResponse>(responseString))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun refreshAndWarmToken(accessToken: String): Result<String> {
+        return try {
+            // 1. Get exchange token
+            val params = mapOf(
+                "access_token" to accessToken,
+                "v" to "5.199"
+            )
+            val exchangeResponse = vkHttpClient.getExchangeToken(params)
+            val exchangeToken = JSONObject(exchangeResponse).optJSONObject("response")?.optString("token")
+                ?: return Result.failure(Exception("Failed to get exchange token"))
+
+            // 2. Auth by exchange token
+            authByExchangeToken(exchangeToken)
         } catch (e: Exception) {
             Result.failure(e)
         }
