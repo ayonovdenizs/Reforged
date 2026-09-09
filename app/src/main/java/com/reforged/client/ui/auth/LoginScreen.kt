@@ -113,18 +113,8 @@ fun LoginScreen(viewModel: AuthViewModel) {
                         shape = RoundedCornerShape(12.dp)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("Password") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null) },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    Spacer(modifier = Modifier.height(32.dp))
                     Button(
-                        onClick = { viewModel.login(username, password) },
+                        onClick = { viewModel.startLogin(username) },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -146,6 +136,28 @@ fun LoginScreen(viewModel: AuthViewModel) {
                 
                 is AuthState.Loading -> {
                     CircularProgressIndicator()
+                }
+
+                is AuthState.NeedPassword -> {
+                    Text(text = "Password Required", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null) },
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Button(
+                        onClick = { viewModel.loginWithPassword(password) },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("LOGIN", style = MaterialTheme.typography.labelLarge)
+                    }
                 }
 
                 is AuthState.NeedCaptcha -> {
@@ -211,6 +223,12 @@ fun LoginScreen(viewModel: AuthViewModel) {
                 is AuthState.Success -> {
                     CircularProgressIndicator()
                     Text(text = "Success! Redirecting...", modifier = Modifier.padding(top = 16.dp))
+                }
+
+                else -> {
+                    // Placeholder for CodeValidation and SelectValidationMethod
+                    Text(text = "Please follow the instructions on your device.")
+                    Button(onClick = { viewModel.logout() }) { Text("CANCEL") }
                 }
             }
         }

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.random.Random
 
 sealed class ChatState {
     object Loading : ChatState()
@@ -57,7 +58,7 @@ class ChatViewModel @Inject constructor(
                 when (event) {
                     is LongPollEvent.NewMessage -> {
                         if (event.peerId == peerId) {
-                            loadHistory(isSilent = true)
+                            handleNewMessageEvent(event)
                         }
                     }
                     is LongPollEvent.Typing -> {
@@ -65,7 +66,50 @@ class ChatViewModel @Inject constructor(
                             addTypingUser(event.userId)
                         }
                     }
+                    is LongPollEvent.Read -> {
+                        if (event.peerId == peerId) {
+                            loadHistory(isSilent = true)
+                        }
+                    }
+                    is LongPollEvent.MessageFlags -> {
+                        if (event.peerId == peerId) {
+                            loadHistory(isSilent = true)
+                        }
+                    }
                     else -> {}
+                }
+            }
+        }
+    }
+
+    private fun handleNewMessageEvent(event: LongPollEvent.NewMessage) {
+        viewModelScope.launch {
+            val currentState = (state.value as? ChatState.Success) ?: return@launch
+            
+            // 1. Check if it's our own message echo by randomId
+            if (event.isOut && event.randomId != 0L) {
+                val existing = currentState.history.items.find { it.randomId.toLong() == event.randomId }
+                if (existing != null && existing.id == 0) {
+                    // It's an echo of our pending message, we can just reload history to get the real ID
+                    loadHistory(isSilent = true)
+                    return@launch
+                }
+            }
+
+            // 2. If it's a full message (no attachments/fwd/reply), we can theoretically insert it.
+            // But for simplicity and correctness (profiles/groups), we reload history or fetch by ID.
+            if (event.isFull) {
+                loadHistory(isSilent = true)
+            } else {
+                // Non-full message, need enrichment
+                repository.getMessageById(event.messageId).onSuccess { fullMessage ->
+                    val latest = (state.value as? ChatState.Success) ?: return@onSuccess
+                    if (latest.history.items.any { it.id == fullMessage.id }) return@onSuccess
+                    
+                    val newItems = listOf(fullMessage) + latest.history.items
+                    _state.value = latest.copy(history = latest.history.copy(items = newItems))
+                }.onFailure {
+                    loadHistory(isSilent = true)
                 }
             }
         }
@@ -140,9 +184,30 @@ class ChatViewModel @Inject constructor(
 
     fun sendMessage(text: String) {
         if (text.isBlank()) return
+        val randomId = Random.nextInt()
+        
+        // Optimistic UI insert (optional, but good for UX)
         viewModelScope.launch {
-            repository.sendMessage(peerId, text).onSuccess {
-                loadHistory(isSilent = true)
+            val currentState = (state.value as? ChatState.Success) ?: return@launch
+            val pendingMessage = MessageDto(
+                id = 0, // indicates pending
+                date = System.currentTimeMillis() / 1000,
+                peerId = peerId,
+                fromId = 0, // current user
+                text = text,
+                randomId = randomId,
+                out = 1
+            )
+            _state.value = currentState.copy(
+                history = currentState.history.copy(items = listOf(pendingMessage) + currentState.history.items)
+            )
+            
+            repository.sendMessage(peerId, text, randomId = randomId).onFailure {
+                // Remove pending message on failure
+                val latest = (state.value as? ChatState.Success) ?: return@onFailure
+                _state.value = latest.copy(
+                    history = latest.history.copy(items = latest.history.items.filter { it.randomId != randomId })
+                )
             }
         }
     }

@@ -5,6 +5,7 @@ import com.reforged.client.data.remote.*
 import com.reforged.client.data.remote.api.VkHttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -54,6 +55,21 @@ class MessagesRepository @Inject constructor(
         }
     }
 
+    suspend fun getMessageById(messageId: Long): Result<MessageDto> {
+        return try {
+            val responseString = vkHttpClient.getMessagesById(messageId.toString())
+            val jsonResponse = JSONObject(responseString).optJSONObject("response")
+            val items = jsonResponse?.optJSONArray("items")
+            if (items != null && items.length() > 0) {
+                Result.success(Json { ignoreUnknownKeys = true }.decodeFromString<MessageDto>(items.getJSONObject(0).toString()))
+            } else {
+                Result.failure(Exception("Message not found: $responseString"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getConversation(peerId: Long): Result<List<ConversationDto>> = withContext(Dispatchers.IO) {
         try {
             val wrapper = vkHttpClient.getConversationsById(peerIds = peerId.toString())
@@ -69,11 +85,17 @@ class MessagesRepository @Inject constructor(
         }
     }
 
-    suspend fun sendMessage(peerId: Long, text: String, stickerId: Int? = null, attachments: List<String>? = null): Result<Int> {
+    suspend fun sendMessage(
+        peerId: Long,
+        text: String,
+        stickerId: Int? = null,
+        attachments: List<String>? = null,
+        randomId: Int = Random.nextInt()
+    ): Result<Int> {
         return try {
             val wrapper = vkHttpClient.sendMessage(
                 peerId = peerId,
-                randomId = Random.nextInt(),
+                randomId = randomId,
                 message = text.ifEmpty { null },
                 stickerId = stickerId,
                 attachment = attachments?.joinToString(",")
@@ -90,9 +112,9 @@ class MessagesRepository @Inject constructor(
         }
     }
 
-    suspend fun getLongPollServer(): Result<LongPollParamsDto> {
+    suspend fun getLongPollServer(needPts: Int = 1, lpVersion: Int = 3): Result<LongPollParamsDto> {
         return try {
-            val wrapper = vkHttpClient.getLongPollServer()
+            val wrapper = vkHttpClient.getLongPollServer(needPts = needPts, lpVersion = lpVersion)
             if (wrapper.response != null) {
                 Result.success(wrapper.response)
             } else if (wrapper.error != null) {

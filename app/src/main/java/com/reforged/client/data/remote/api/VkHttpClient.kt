@@ -5,7 +5,6 @@ import com.reforged.client.data.remote.*
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -14,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -42,6 +42,7 @@ class VkHttpClient @Inject constructor(
         baseUrl: String = "https://api.vk.com/",
         path: String,
         isMusic: Boolean = false,
+        useAuthAgent: Boolean = false,
         block: HttpRequestBuilder.() -> Unit = {}
     ): HttpResponse {
         // Rate Limiting Logic
@@ -58,10 +59,14 @@ class VkHttpClient @Inject constructor(
             if (baseUrl.contains("vk.com") || baseUrl.contains("vk.ru")) {
                 parameter("v", if (isMusic) "5.119" else "5.199")
                 val token = if (isMusic) tokenStorage.musicAccessToken ?: tokenStorage.accessToken else tokenStorage.accessToken
-                parameter("access_token", token)
+                if (!parameterExists("access_token")) {
+                    parameter("access_token", token)
+                }
             }
             if (isMusic) {
                 header("User-Agent", "VKMusic/2.1.2 (Android 11; SDK 30; arm64-v8a; Google Pixel 4; ru)")
+            } else if (useAuthAgent) {
+                header("User-Agent", "VKAndroidApp/8.191-56796 (Android 13; SDK 33; arm64-v8a; Google Pixel 4; ru; 1080x1920)")
             } else {
                 header("User-Agent", "VKAndroidApp/8.5-14400 (Android 13; SDK 33; arm64-v8a; Xiaomi; ru; 2340x1080)")
             }
@@ -69,13 +74,51 @@ class VkHttpClient @Inject constructor(
         }
     }
 
+    private fun HttpRequestBuilder.parameterExists(name: String): Boolean {
+        return url.parameters.contains(name)
+    }
+
     // --- Auth API ---
-    suspend fun login(params: Map<String, String>): AuthResponse = safeRequest(
-        baseUrl = "https://oauth.vk.ru/",
-        path = "token"
+    suspend fun getAnonymToken(params: Map<String, String>): String? {
+        val response: String = safeRequest(
+            baseUrl = "https://api.vk.ru/oauth/",
+            path = "get_anonym_token",
+            useAuthAgent = true
+        ) {
+            params.forEach { (key, value) -> parameter(key, value) }
+        }.bodyAsText()
+        
+        return try {
+            JSONObject(response).optJSONObject("response")?.optString("token")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    suspend fun validateAccount(params: Map<String, String>): String = safeRequest(
+        baseUrl = "https://api.vk.com/",
+        path = "method/auth.validateAccount",
+        useAuthAgent = true
     ) {
         params.forEach { (key, value) -> parameter(key, value) }
-    }.body()
+    }.bodyAsText()
+
+    suspend fun directLogin(params: Map<String, String>): String = safeRequest(
+        baseUrl = "https://api.vk.ru/oauth/",
+        path = "token",
+        useAuthAgent = true
+    ) {
+        params.forEach { (key, value) -> parameter(key, value) }
+    }.bodyAsText()
+
+    suspend fun authByExchangeToken(params: Map<String, String>): String = safeRequest(
+        baseUrl = "https://api.vk.ru/oauth/",
+        path = "auth_by_exchange_token",
+        useAuthAgent = true
+    ) {
+        params.forEach { (key, value) -> parameter(key, value) }
+    }.bodyAsText()
 
     // --- Newsfeed API ---
     suspend fun getNewsFeed(
@@ -171,6 +214,11 @@ class VkHttpClient @Inject constructor(
     suspend fun markAsRead(peerId: Long): BaseOkResponseWrapper = safeRequest(path = "method/messages.markAsRead") {
         parameter("peer_id", peerId)
     }.body()
+
+    suspend fun getMessagesById(messageIds: String): String = safeRequest(path = "method/messages.getById") {
+        parameter("message_ids", messageIds)
+        parameter("extended", 1)
+    }.bodyAsText()
 
     // --- Wall API ---
     suspend fun getWall(

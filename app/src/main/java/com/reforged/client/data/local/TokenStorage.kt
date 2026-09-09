@@ -22,4 +22,12 @@ class TokenStorage @Inject constructor(
     var userId: Long
         get() = prefs.getLong("user_id", 0L)
         set(value) = prefs.edit().putLong("user_id", value).apply()
+
+    var anonymToken: String?
+        get() = prefs.getString("anonym_token", null)
+        set(value) = prefs.edit().putString("anonym_token", value).apply()
+
+    var anonymTokenExpiry: Long
+        get() = prefs.getLong("anonym_token_expiry", 0L)
+        set(value) = prefs.edit().putLong("anonym_token_expiry", value).apply()
 }
