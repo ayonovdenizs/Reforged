@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.reforged.client.R
+import org.json.JSONObject
 
 class AuthWebViewActivity : ComponentActivity() {
 
@@ -53,7 +55,8 @@ class AuthWebViewActivity : ComponentActivity() {
                         }
                         setResult(Activity.RESULT_OK, result)
                         finish()
-                    }
+                    },
+                    onClose = { finish() }
                 )
                 
                 if (isLoading) {
@@ -69,7 +72,8 @@ class AuthWebViewActivity : ComponentActivity() {
 fun AuthWebView(
     url: String,
     onLoadingChanged: (Boolean) -> Unit,
-    onCaptured: (Map<String, String>) -> Unit
+    onCaptured: (Map<String, String>) -> Unit,
+    onClose: () -> Unit
 ) {
     AndroidView(
         factory = { context ->
@@ -78,22 +82,49 @@ fun AuthWebView(
                 settings.domStorageEnabled = true
                 settings.databaseEnabled = true
                 
-                // Clear cookies to ensure fresh login
-                android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                // Important: VK ID Captcha communicates via "AndroidBridge"
+                addJavascriptInterface(object {
+                    @JavascriptInterface
+                    fun VKCaptchaGetResult(data: String) {
+                        try {
+                            val json = JSONObject(data)
+                            val token = json.optString("token")
+                            if (token.isNotEmpty()) {
+                                post { onCaptured(mapOf("success_token" to token)) }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+
+                    @JavascriptInterface
+                    fun VKCaptchaCloseCaptcha(data: String) {
+                        post { onClose() }
+                    }
+
+                    @JavascriptInterface
+                    fun VKCaptchaListenSensorsStart(data: String) {}
+
+                    @JavascriptInterface
+                    fun VKCaptchaListenSensorsStop(data: String) {}
+                }, "AndroidBridge")
+                
+                // Clear cookies to ensure fresh login if it's the main auth url
+                if (url.contains("authorize")) {
+                    android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                }
                 
                 // User-Agent like VK Android App
                 settings.userAgentString = "VKAndroidApp/8.191-56796 (Android 13; SDK 33; arm64-v8a; Google Pixel 4; ru; 1080x1920)"
                 
                 webViewClient = object : WebViewClient() {
                     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                        android.util.Log.d("AuthWebView", "Started: $url")
                         onLoadingChanged(true)
                         if (checkUrl(url)) return
                         super.onPageStarted(view, url, favicon)
                     }
 
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        android.util.Log.d("AuthWebView", "Finished: $url")
                         onLoadingChanged(false)
                         checkUrl(url)
                         super.onPageFinished(view, url)
@@ -106,12 +137,10 @@ fun AuthWebView(
                     private fun checkUrl(url: String?): Boolean {
                         url ?: return false
                         if (url.contains("access_token=")) {
-                            // Extract params from fragment (#access_token=...)
                             val fragment = url.substringAfter("#")
                             val params = fragment.split("&").associate {
                                 it.substringBefore("=") to it.substringAfter("=")
                             }
-                            android.util.Log.d("AuthWebView", "Captured access_token")
                             onCaptured(params)
                             return true
                         }

@@ -127,23 +127,6 @@ fun LoginScreen(viewModel: AuthViewModel) {
                     ) {
                         Text("NEXT", style = MaterialTheme.typography.labelLarge)
                     }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    TextButton(
-                        onClick = { 
-                            val intent = Intent(context, AuthWebViewActivity::class.java)
-                            launcher.launch(intent)
-                        },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.textButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    ) {
-                        Text("LOGIN VIA BROWSER", style = MaterialTheme.typography.labelLarge)
-                    }
                 }
                 
                 is AuthState.Loading -> {

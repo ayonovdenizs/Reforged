@@ -45,6 +45,7 @@ class VkHttpClient @Inject constructor(
         path: String,
         isMusic: Boolean = false,
         useAuthAgent: Boolean = false,
+        skipAutoToken: Boolean = false,
         method: HttpMethod = HttpMethod.Get,
         params: Map<String, String>? = null,
         block: HttpRequestBuilder.() -> Unit = {}
@@ -69,14 +70,30 @@ class VkHttpClient @Inject constructor(
                 if (!allParams.containsKey("v")) {
                     allParams["v"] = version
                 }
-                
-                val token = if (isMusic) tokenStorage.musicAccessToken ?: tokenStorage.accessToken else tokenStorage.accessToken
-                if (!allParams.containsKey("access_token") && token != null) {
-                    allParams["access_token"] = token
+
+                // ⚠️ Auth-эндпоинты (oauth/*, auth.*, ecosystem.*) НЕ должны получать
+                // user access_token автоматически — у них свой access_token/anonymous_token.
+                // Иначе сервер видит чужой/протухший токен и капча/валидация ломается.
+                val isAuthCall = path.startsWith("get_anonym_token") ||
+                        path.startsWith("token") ||
+                        path.startsWith("auth_by_exchange_token") ||
+                        path.startsWith("auth.") ||
+                        path.startsWith("ecosystem.")
+                if (!skipAutoToken && !isAuthCall) {
+                    val token = if (isMusic) tokenStorage.musicAccessToken ?: tokenStorage.accessToken else tokenStorage.accessToken
+                    if (!allParams.containsKey("access_token") && token != null) {
+                        allParams["access_token"] = token
+                    }
                 }
-                
+
                 if (!allParams.containsKey("https")) {
                     allParams["https"] = "1"
+                }
+                // device_id + lang обязательны для auth-флоу
+                if (isAuthCall) {
+                    if (!allParams.containsKey("lang")) {
+                        allParams["lang"] = "ru"
+                    }
                 }
             }
             
@@ -89,11 +106,11 @@ class VkHttpClient @Inject constructor(
             }
             
             if (isMusic) {
-                header("User-Agent", "VKMusic/2.1.2 (Android 11; SDK 30; arm64-v8a; Google Pixel 4; ru)")
+                header("User-Agent", "VKAndroidApp/8.191-56796 (Android 13; SDK 33; arm64-v8a; Google Pixel 4; ru; 1080x1920)")
             } else if (useAuthAgent) {
                 header("User-Agent", "VKAndroidApp/8.191-56796 (Android 13; SDK 33; arm64-v8a; Google Pixel 4; ru; 1080x1920)")
             } else {
-                header("User-Agent", "VKAndroidApp/8.5-14400 (Android 13; SDK 33; arm64-v8a; Xiaomi; ru; 2340x1080)")
+                header("User-Agent", "VKAndroidApp/8.191-56796 (Android 13; SDK 33; arm64-v8a; Google Pixel 4; ru; 1080x1920)")
             }
             block()
         }
@@ -125,13 +142,20 @@ class VkHttpClient @Inject constructor(
         }
     }
 
-    suspend fun validateAccount(params: Map<String, String>): String = safeRequest(
-        baseUrl = "https://api.vk.ru/method/",
-        path = "auth.validateAccount",
-        useAuthAgent = true,
-        method = HttpMethod.Post,
-        params = params
-    ).bodyAsText()
+    suspend fun validateAccount(params: Map<String, String>): String {
+        // Fenrir: passkey_supported + lang обязательны, иначе сервер может отдать капчу/ошибку
+        val full = params.toMutableMap()
+        if (!full.containsKey("passkey_supported")) full["passkey_supported"] = "0"
+        if (!full.containsKey("lang")) full["lang"] = "ru"
+        return safeRequest(
+            baseUrl = "https://api.vk.ru/method/",
+            path = "auth.validateAccount",
+            useAuthAgent = true,
+            skipAutoToken = true,
+            method = HttpMethod.Post,
+            params = full
+        ).bodyAsText()
+    }
 
     suspend fun getVerificationMethods(params: Map<String, String>): String = safeRequest(
         baseUrl = "https://api.vk.ru/method/",
@@ -168,13 +192,20 @@ class VkHttpClient @Inject constructor(
         params = params
     ).bodyAsText()
 
-    suspend fun directLogin(params: Map<String, String>): String = safeRequest(
-        baseUrl = "https://api.vk.ru/oauth/",
-        path = "token",
-        useAuthAgent = true,
-        method = HttpMethod.Post,
-        params = params
-    ).bodyAsText()
+    suspend fun directLogin(params: Map<String, String>): String {
+        // Fenrir IAuthService.directLogin: lang, device_id, libverify_support, 2fa_supported обязательны
+        val full = params.toMutableMap()
+        if (!full.containsKey("lang")) full["lang"] = "ru"
+        if (!full.containsKey("libverify_support")) full["libverify_support"] = "0"
+        return safeRequest(
+            baseUrl = "https://api.vk.ru/oauth/",
+            path = "token",
+            useAuthAgent = true,
+            skipAutoToken = true,
+            method = HttpMethod.Post,
+            params = full
+        ).bodyAsText()
+    }
 
     suspend fun authByExchangeToken(params: Map<String, String>): String = safeRequest(
         baseUrl = "https://api.vk.ru/oauth/",
