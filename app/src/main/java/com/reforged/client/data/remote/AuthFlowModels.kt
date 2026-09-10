@@ -46,7 +46,7 @@ data class EcosystemSendOtp(
     val sid: String? = null,
     val code_length: Int = 0,
     val info: String? = null,
-    val status: String? = null
+    val status: Int = 0
 )
 
 @Serializable
