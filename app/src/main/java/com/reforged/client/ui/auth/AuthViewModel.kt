@@ -38,6 +38,8 @@ class AuthViewModel @Inject constructor(
     private var currentUsername = ""
     private var currentSid = ""
     private var currentMethod = ""
+    private var currentPassword = ""
+    private var current2FACode = ""
     private var canSkipPassword = false
 
     fun startLogin(username: String, captchaToken: String? = null) {
@@ -116,6 +118,7 @@ class AuthViewModel @Inject constructor(
     }
 
     fun verifyCode(code: String) {
+        current2FACode = code
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             repository.checkEcosystemOtp(currentSid, currentMethod, code).onSuccess { response ->
@@ -134,6 +137,7 @@ class AuthViewModel @Inject constructor(
     }
 
     fun loginWithPassword(password: String) {
+        currentPassword = password
         doAuth(password = password, grantType = "password")
     }
 
@@ -148,15 +152,27 @@ class AuthViewModel @Inject constructor(
             // Captcha was during validateAccount
             startLogin(currentUsername, successToken)
         } else {
-            // Captcha was during directLogin
-            doAuth(grantType = if (currentMethod == "password") "password" else "without_password", captchaSuccessToken = successToken)
+            // Captcha was during directLogin (Password or 2FA)
+            val grantType = when {
+                current2FACode.isNotEmpty() -> "password" // or whatever was used
+                currentMethod == "password" -> "password"
+                else -> "without_password"
+            }
+            
+            doAuth(
+                password = if (currentPassword.isNotEmpty()) currentPassword else null,
+                code = if (current2FACode.isNotEmpty()) current2FACode else null,
+                grantType = grantType,
+                captchaSuccessToken = successToken
+            )
         }
     }
 
     fun submit2FA(code: String) {
+        current2FACode = code
         val currentState = authState.value
         if (currentState is AuthState.Need2FA) {
-            doAuth(sid = currentState.sid, code = code, grantType = "password") // or appropriate grantType
+            doAuth(sid = currentState.sid, code = code, grantType = "password")
         }
     }
 
