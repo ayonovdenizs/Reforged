@@ -180,11 +180,15 @@ class AuthViewModel @Inject constructor(
         captchaSuccessToken: String? = null
     ) {
         currentGrantType = grantType
+        // If we have a code, we usually don't need to send the password again
+        // as the SID already represents the validated credentials session.
+        val passwordToUse = if (code != null) null else password ?: if (currentPassword.isNotEmpty()) currentPassword else null
+        
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             repository.directLogin(
                 username = currentUsername,
-                password = password,
+                password = passwordToUse,
                 sid = sid,
                 code = code,
                 grantType = grantType,

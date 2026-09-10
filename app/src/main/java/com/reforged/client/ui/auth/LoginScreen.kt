@@ -137,12 +137,24 @@ fun LoginScreen(viewModel: AuthViewModel) {
                     Text(text = "Choose Verification Method", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(16.dp))
                     state.methods.forEach { method ->
+                        val methodText = when (method.name) {
+                            "push" -> "Push Notification"
+                            "sms" -> "SMS"
+                            "email" -> "Email"
+                            "callreset" -> "Call with Code"
+                            "codegen" -> "Code Generator"
+                            "password" -> "Password"
+                            "reserve_code" -> "Reserve Code"
+                            else -> method.name.uppercase()
+                        }
+                        val infoText = if (!method.info.isNullOrEmpty()) " (${method.info})" else ""
+                        
                         OutlinedButton(
                             onClick = { viewModel.selectMethod(state.sid, method.name) },
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text(text = method.info ?: method.name.uppercase())
+                            Text(text = methodText + infoText)
                         }
                     }
                 }
