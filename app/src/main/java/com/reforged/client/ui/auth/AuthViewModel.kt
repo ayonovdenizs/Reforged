@@ -40,6 +40,7 @@ class AuthViewModel @Inject constructor(
     private var currentMethod = ""
     private var currentPassword = ""
     private var current2FACode = ""
+    private var currentGrantType = "without_password"
     private var canSkipPassword = false
 
     fun startLogin(username: String, captchaToken: String? = null) {
@@ -147,22 +148,16 @@ class AuthViewModel @Inject constructor(
     }
 
     fun onCaptchaSuccess(successToken: String) {
-        android.util.Log.d("AuthViewModel", "onCaptchaSuccess, currentSid: $currentSid")
+        android.util.Log.d("AuthViewModel", "onCaptchaSuccess, currentSid: $currentSid, grantType: $currentGrantType")
         if (currentSid.isEmpty()) {
             // Captcha was during validateAccount
             startLogin(currentUsername, successToken)
         } else {
             // Captcha was during directLogin (Password or 2FA)
-            val grantType = when {
-                current2FACode.isNotEmpty() -> "password" // or whatever was used
-                currentMethod == "password" -> "password"
-                else -> "without_password"
-            }
-            
             doAuth(
                 password = if (currentPassword.isNotEmpty()) currentPassword else null,
                 code = if (current2FACode.isNotEmpty()) current2FACode else null,
-                grantType = grantType,
+                grantType = currentGrantType,
                 captchaSuccessToken = successToken
             )
         }
@@ -172,7 +167,8 @@ class AuthViewModel @Inject constructor(
         current2FACode = code
         val currentState = authState.value
         if (currentState is AuthState.Need2FA) {
-            doAuth(sid = currentState.sid, code = code, grantType = "password")
+            // When submitting 2FA code, use the SID from the error response
+            doAuth(sid = currentState.sid, code = code, grantType = currentGrantType)
         }
     }
 
@@ -183,6 +179,7 @@ class AuthViewModel @Inject constructor(
         grantType: String,
         captchaSuccessToken: String? = null
     ) {
+        currentGrantType = grantType
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             repository.directLogin(
@@ -201,6 +198,10 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun handleLoginResponse(response: LoginResponse) {
+        // Update SID if provided by VK in error or success
+        response.validation_sid?.let { currentSid = it }
+        response.captcha_sid?.let { currentSid = it }
+
         when {
             response.access_token != null -> {
                 val token = response.access_token
@@ -222,7 +223,7 @@ class AuthViewModel @Inject constructor(
             }
             response.error == "need_captcha" -> {
                 _authState.value = AuthState.NeedCaptcha(
-                    sid = response.captcha_sid ?: "",
+                    sid = response.validation_sid ?: response.captcha_sid ?: currentSid,
                     imgUrl = response.captcha_img ?: "",
                     redirectUri = response.redirect_uri
                 )
@@ -230,10 +231,14 @@ class AuthViewModel @Inject constructor(
             response.error == "need_validation" -> {
                 // Check if it's 2FA or Web Validation
                 if (response.validation_type == "2fa" || response.validation_type == "phone" || response.validation_type == "2fa_app" || response.validation_type == "2fa_sms") {
-                    _authState.value = AuthState.Need2FA(response.validation_sid ?: "", response.phone_mask ?: "")
+                    val sid2fa = response.validation_sid ?: currentSid
+                    _authState.value = AuthState.Need2FA(sid2fa, response.phone_mask ?: "")
                 } else if (!response.captcha_img.isNullOrEmpty()) {
-                    // Sometimes need_validation comes with captcha
-                    _authState.value = AuthState.NeedCaptcha(response.validation_sid ?: "", response.captcha_img)
+                    _authState.value = AuthState.NeedCaptcha(
+                        sid = response.validation_sid ?: currentSid,
+                        imgUrl = response.captcha_img!!,
+                        redirectUri = response.redirect_uri
+                    )
                 } else {
                     _authState.value = AuthState.Error(response.error_description ?: "Validation required")
                 }
